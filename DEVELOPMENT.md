@@ -90,6 +90,51 @@ If you want to run the frontend without a live backend, use:
 npm run dev:mock
 ```
 
+## Local add-ons
+
+Agent Canvas supports trusted, local, frontend-only add-ons. Place an add-on
+under `addons/<addon-id>/` with a manifest at `.openhands/addon.json`:
+
+```json
+{
+  "name": "agent-status",
+  "title": "Agent Status",
+  "frontend": {
+    "entry": "src/index.tsx"
+  },
+  "sidebar": {
+    "order": 350
+  },
+  "compatibility": {
+    "addon_api_version": 1,
+    "min_gui_version": "1.0.0"
+  }
+}
+```
+
+The entry module exports a default `register(api)` function:
+
+```tsx
+import type { AddonApi, AddonRegistration } from "#/addons";
+
+export default function register(_api: AddonApi): AddonRegistration {
+  return {
+    Component: MyAddonPage,
+  };
+}
+```
+
+Run `npm run make-addons` after adding or removing add-on folders. The normal
+dev, test, typecheck, and build scripts run it automatically. Discovered
+add-ons are mounted under `/addons/:addonId/*` and appended to the main
+sidebar. For v1, add-ons are trusted local UI code: they do not register
+agent-server routes, install backend modules, or define arbitrary top-level
+routes. Use `api.fetchJSON()` to call existing agent-server endpoints with the
+active backend/session credentials.
+
+See `examples/addons/agent-status` for a minimal add-on that calls
+`/server_info`.
+
 ## Build and test
 
 ```sh

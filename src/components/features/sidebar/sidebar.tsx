@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  Puzzle,
   Server,
   Settings,
 } from "lucide-react";
@@ -24,6 +25,7 @@ import { useSidebarCollapsedState } from "#/hooks/use-sidebar-collapsed";
 import { useClickOutsideElement } from "#/hooks/use-click-outside-element";
 import { useBackendsHealth } from "#/hooks/query/use-backends-health";
 import AutomationsIcon from "#/icons/automations.svg?react";
+import { getAddonSidebarEntries } from "#/addons/registry";
 
 // The LLM settings modal is only mounted when the settings query 404s and
 // LLM settings aren't hidden — keep it out of the sidebar's eager graph.
@@ -144,6 +146,7 @@ export function Sidebar() {
     currentPath.startsWith("/skills") ||
     currentPath === "/plugins" ||
     currentPath === "/mcp";
+  const addonSidebarEntries = React.useMemo(() => getAddonSidebarEntries(), []);
 
   return (
     <SidebarCollapseContext.Provider value={collapsed}>
@@ -303,6 +306,21 @@ export function Sidebar() {
             collapsed={collapsed}
             icon={<AutomationsIcon width={ICON_SIZE} height={ICON_SIZE} />}
           />
+          {addonSidebarEntries.map((addon) => {
+            const AddonIcon = addon.Icon ?? Puzzle;
+
+            return (
+              <SidebarNavLink
+                key={addon.id}
+                to={`/addons/${addon.id}`}
+                label={addon.manifest.title}
+                testId={`sidebar-addon-${addon.id}-link`}
+                disabled={linkDisabled}
+                collapsed={collapsed}
+                icon={<AddonIcon width={ICON_SIZE} height={ICON_SIZE} />}
+              />
+            );
+          })}
         </nav>
 
         <SidebarConversationList />

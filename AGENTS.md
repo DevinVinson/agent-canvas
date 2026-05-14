@@ -15,6 +15,8 @@
   - `VITE_ENABLE_BROWSER_TOOLS=false` to omit `BrowserToolSet` from new conversation payloads.
   - `VITE_LOAD_PUBLIC_SKILLS=false` to disable loading public skills from the OpenHands extensions marketplace (https://github.com/OpenHands/extensions). Defaults to true.
 - Default working-dir fallback is now the relative path `workspace/project` (exported as `DEFAULT_WORKING_DIR` from `src/api/agent-server-config.ts`); git-path heuristics and the default PLAN preview path should reuse that constant instead of hardcoding `/workspace/project`.
+- Local UI add-ons are frontend-only and owned by `agent-canvas`: valid add-ons live under `addons/<addon-id>/.openhands/addon.json`, are discovered by `npm run make-addons` / `scripts/generate-addons-registry.mjs`, generate `src/addons/registry.generated.ts`, appear in the main sidebar, and mount only under `/addons/:addonId/*`. Do not add agent-server routes, backend modules, install/update flows, or arbitrary top-level route injection for add-ons unless a later product decision explicitly broadens the v1 contract.
+- The add-on host API is intentionally small (`src/addons/types.ts` / `src/addons/sdk.ts`): add-ons get their id, manifest, base path, navigation helper, React Query client, and `api.fetchJSON()` for existing agent-server endpoints using the active backend/session credentials. Keep plugins and add-ons separate: plugins affect conversation/runtime behavior, add-ons affect the local UI shell.
 - The UI keeps most OpenHands routes/layout intact, but hosted-only behavior (org, account management, integrations) has been removed via the fabricated OSS config because there is no separate app backend.
 - Verification command: `npm run typecheck && npm run build`.
 - GitHub automation now includes `.github/workflows/ci.yml` for `npm ci`, `npm test`, and `npm run build`, plus `.github/dependabot.yml` with weekly npm/github-actions updates gated by a 7-day cooldown.
@@ -60,7 +62,7 @@
 
 - Direct `dependencies` and `devDependencies` in `package.json` are exact-pinned (no caret ranges); reproducible installs should use the committed `package-lock.json` plus `npm ci`, and targeted transitive fixes still belong in `overrides`.
 - `package-lock.json` must also retain the optional peer entry for `node_modules/vite-tsconfig-paths/node_modules/typescript@5.9.3`; without that nested lock entry, clean `npm ci` installs on CI fail with `Missing: typescript@5.9.3 from lock file`.
-- `npm test` now runs `npm run make-i18n` first so clean environments generate `src/i18n/declaration.ts` before Vitest loads aliased imports.
+- `npm test` now runs `npm run make-i18n` and `npm run make-addons` first so clean environments generate `src/i18n/declaration.ts` and `src/addons/registry.generated.ts` before Vitest loads aliased imports.
 - `__tests__/vite-config.test.ts` should import `vite.config` directly under `// @vitest-environment node`; spawning plain `node -e 'import ./vite.config.ts'` is not portable across Node patch releases in CI.
 - `vitest.setup.ts` must guard DOM-specific globals (`HTMLCanvasElement`, `HTMLElement`, `window`) because some suites run in the Node environment instead of jsdom.
 - `__tests__/components/providers/posthog-wrapper.test.tsx` must wrap `PostHogWrapper` in a `QueryClientProvider`; the wrapper now reads its client from React Query context instead of importing the global singleton.

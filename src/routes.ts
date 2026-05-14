@@ -14,6 +14,7 @@ export default [
     route("skills", "routes/skills-settings.tsx"),
     route("plugins", "routes/skills-plugins.tsx"),
     route("mcp", "routes/mcp.tsx"),
+    route("addons/:addonId/*", "routes/addon-host.tsx"),
     route("settings", "routes/settings.tsx", [
       index("routes/llm-settings.tsx"),
       route("condenser", "routes/condenser-settings.tsx"),
