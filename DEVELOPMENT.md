@@ -126,14 +126,50 @@ export default function register(_api: AddonApi): AddonRegistration {
 
 Run `npm run make-addons` after adding or removing add-on folders. The normal
 dev, test, typecheck, and build scripts run it automatically. Discovered
-add-ons are mounted under `/addons/:addonId/*` and appended to the main
-sidebar. For v1, add-ons are trusted local UI code: they do not register
+add-ons with a route are mounted under `/addons/:addonId/*` and appended to the
+main sidebar. For v1, add-ons are trusted local UI code: they do not register
 agent-server routes, install backend modules, or define arbitrary top-level
 routes. Use `api.fetchJSON()` to call existing agent-server endpoints with the
 active backend/session credentials.
 
-See `examples/addons/agent-status` for a minimal add-on that calls
-`/server_info`.
+Style-only add-ons can customize the Agent Canvas shell without adding a route
+or sidebar entry:
+
+```json
+{
+  "name": "canvas-polish",
+  "title": "Canvas Polish",
+  "frontend": {
+    "route": false
+  },
+  "sidebar": {
+    "visible": false
+  },
+  "styling": {
+    "appCss": ["src/agent-canvas.css"]
+  },
+  "compatibility": {
+    "addon_api_version": 1,
+    "min_gui_version": "1.0.0"
+  }
+}
+```
+
+`styling.appCss` files are imported at build time and apply globally, so scope
+selectors through the app root marker:
+
+```css
+[data-agent-server-ui][data-agent-canvas-addons~="canvas-polish"]
+  > [data-theme] {
+  --oh-color-primary: #7dd3fc;
+}
+```
+
+This is a proof-of-concept styling hook rather than the final theming system.
+
+See `examples/addons/agent-status` for a minimal routed add-on that calls
+`/server_info`, and `examples/addons/canvas-polish` for a style-only shell
+customization add-on.
 
 ## Build and test
 
