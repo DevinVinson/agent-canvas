@@ -65,6 +65,17 @@ function normalizeImportPath(fromFile, targetFile) {
   return relativePath;
 }
 
+function normalizeFrontendImportPath(fromFile, targetFile) {
+  const importPath = normalizeImportPath(fromFile, targetFile);
+  const extension = path.extname(targetFile);
+
+  if (FRONTEND_ENTRY_EXTENSIONS.has(extension)) {
+    return importPath.slice(0, -extension.length);
+  }
+
+  return importPath;
+}
+
 function resolveInsideAddon(addonDir, relativePath) {
   const resolved = path.resolve(addonDir, relativePath);
   const normalizedAddonDir = path.resolve(addonDir);
@@ -263,7 +274,7 @@ async function validateAddon({
       id: addonId,
       manifest,
       order: manifest.sidebar?.order ?? 500,
-      entryImportPath: normalizeImportPath(outFile, entryFile),
+      entryImportPath: normalizeFrontendImportPath(outFile, entryFile),
       iconImportPath: iconFile ? normalizeImportPath(outFile, iconFile) : null,
     },
     diagnostics,

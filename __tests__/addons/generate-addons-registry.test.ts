@@ -75,7 +75,7 @@ describe("generate-addons-registry", () => {
     expect(generated).toContain('title": "Valid Add-on"');
     expect(generated).toContain("order: 120");
     expect(generated).toContain(
-      'import("../../addons/valid-addon/src/index.tsx")',
+      'import("../../addons/valid-addon/src/index")',
     );
     expect(generated).toContain(
       'from "../../addons/valid-addon/src/sidebar.svg?react"',
