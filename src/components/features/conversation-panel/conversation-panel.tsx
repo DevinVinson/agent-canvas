@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { SlidersHorizontal } from "lucide-react";
+import { ListFilter } from "lucide-react";
 import { I18nKey } from "#/i18n/declaration";
 import { useNavigation } from "#/context/navigation-context";
 import { usePaginatedConversations } from "#/hooks/query/use-paginated-conversations";
@@ -105,7 +105,7 @@ export function ConversationPanel({
     string | null
   >(null);
 
-  const { data, isFetching, hasNextPage, isFetchingNextPage, fetchNextPage } =
+  const { data, isLoading, hasNextPage, isFetchingNextPage, fetchNextPage } =
     usePaginatedConversations();
 
   // Fetch in-progress start tasks
@@ -293,9 +293,13 @@ export function ConversationPanel({
   // child fills the panel and scrolls when its content overflows. Modals are
   // siblings of the scroll element and are `position: fixed`, so they don't
   // participate in the panel's scroll geometry.
-  const showInitialSkeleton = isFetching && conversations.length === 0;
+  // Gate on `isLoading` (true only during the first fetch with no cached
+  // data), not `isFetching` — the latter flips back to true on every 10s
+  // background refetch, causing the skeleton/empty-state to flicker when
+  // the list is empty.
+  const showInitialSkeleton = isLoading;
   const showEmptyState =
-    !isFetching && conversations.length === 0 && !startTasks?.length;
+    !isLoading && conversations.length === 0 && !startTasks?.length;
   const showSummaryBar = !compact && olderConversations.length > 0;
 
   return (
@@ -324,7 +328,7 @@ export function ConversationPanel({
               onClick={() => setOlderFilterMenuOpen((open) => !open)}
               className="inline-flex items-center justify-center rounded-md p-1 text-neutral-400 hover:text-white hover:bg-[#1f1f1f99] transition-colors"
             >
-              <SlidersHorizontal size={14} />
+              <ListFilter size={14} />
             </button>
 
             {olderFilterMenuOpen && (
@@ -384,9 +388,11 @@ export function ConversationPanel({
         className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain custom-scrollbar-always"
       >
         {showInitialSkeleton && (
-          <div className="space-y-2">
+          <div>
             {Array.from({ length: 5 }).map((_, index) => (
-              <ConversationCardSkeleton key={index} compact={compact} />
+              <div key={index} className={compact ? "" : "block px-2 py-0.5"}>
+                <ConversationCardSkeleton compact={compact} />
+              </div>
             ))}
           </div>
         )}
