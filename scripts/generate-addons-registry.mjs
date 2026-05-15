@@ -144,11 +144,24 @@ function validateManifestShape(manifest, addonId) {
 
   if (!isRecord(manifest.frontend)) {
     errors.push("manifest.frontend is required");
-  } else if (
-    typeof manifest.frontend.entry !== "string" ||
-    !manifest.frontend.entry.trim()
-  ) {
-    errors.push("manifest.frontend.entry is required");
+  } else {
+    if (
+      manifest.frontend.route !== undefined &&
+      typeof manifest.frontend.route !== "boolean"
+    ) {
+      errors.push("manifest.frontend.route must be a boolean when provided");
+    }
+
+    const routeEnabled = manifest.frontend.route !== false;
+    if (
+      manifest.frontend.entry !== undefined &&
+      (typeof manifest.frontend.entry !== "string" ||
+        !manifest.frontend.entry.trim())
+    ) {
+      errors.push("manifest.frontend.entry must be a non-empty string");
+    } else if (routeEnabled && manifest.frontend.entry === undefined) {
+      errors.push("manifest.frontend.entry is required");
+    }
   }
 
   if (manifest.sidebar !== undefined && !isRecord(manifest.sidebar)) {
@@ -169,6 +182,36 @@ function validateManifestShape(manifest, addonId) {
     typeof manifest.sidebar.icon !== "string"
   ) {
     errors.push("manifest.sidebar.icon must be a string when provided");
+  }
+
+  if (
+    isRecord(manifest.sidebar) &&
+    manifest.sidebar.visible !== undefined &&
+    typeof manifest.sidebar.visible !== "boolean"
+  ) {
+    errors.push("manifest.sidebar.visible must be a boolean when provided");
+  }
+
+  if (manifest.styling !== undefined && !isRecord(manifest.styling)) {
+    errors.push("manifest.styling must be an object when provided");
+  }
+
+  if (
+    isRecord(manifest.styling) &&
+    manifest.styling.appCss !== undefined &&
+    !Array.isArray(manifest.styling.appCss)
+  ) {
+    errors.push("manifest.styling.appCss must be an array when provided");
+  }
+
+  if (Array.isArray(manifest.styling?.appCss)) {
+    manifest.styling.appCss.forEach((stylePath, index) => {
+      if (typeof stylePath !== "string" || !stylePath.trim()) {
+        errors.push(
+          `manifest.styling.appCss[${index}] must be a non-empty string`,
+        );
+      }
+    });
   }
 
   if (
@@ -231,26 +274,33 @@ async function validateAddon({
     return { entry: null, diagnostics };
   }
 
-  const entryFile = resolveInsideAddon(addonDir, manifest.frontend.entry);
-  if (!entryFile) {
-    diagnostics.push(
-      `${addonId} was skipped: frontend.entry must stay inside the add-on directory`,
-    );
-    return { entry: null, diagnostics };
-  }
+  const routeEnabled = manifest.frontend.route !== false;
+  let entryImportPath = null;
 
-  if (!FRONTEND_ENTRY_EXTENSIONS.has(path.extname(entryFile))) {
-    diagnostics.push(
-      `${addonId} was skipped: frontend.entry must be a JS or TS module`,
-    );
-    return { entry: null, diagnostics };
-  }
+  if (routeEnabled) {
+    const entryFile = resolveInsideAddon(addonDir, manifest.frontend.entry);
+    if (!entryFile) {
+      diagnostics.push(
+        `${addonId} was skipped: frontend.entry must stay inside the add-on directory`,
+      );
+      return { entry: null, diagnostics };
+    }
 
-  if (!(await pathExists(entryFile))) {
-    diagnostics.push(
-      `${addonId} was skipped: missing frontend entry ${manifest.frontend.entry}`,
-    );
-    return { entry: null, diagnostics };
+    if (!FRONTEND_ENTRY_EXTENSIONS.has(path.extname(entryFile))) {
+      diagnostics.push(
+        `${addonId} was skipped: frontend.entry must be a JS or TS module`,
+      );
+      return { entry: null, diagnostics };
+    }
+
+    if (!(await pathExists(entryFile))) {
+      diagnostics.push(
+        `${addonId} was skipped: missing frontend entry ${manifest.frontend.entry}`,
+      );
+      return { entry: null, diagnostics };
+    }
+
+    entryImportPath = normalizeFrontendImportPath(outFile, entryFile);
   }
 
   let iconFile = null;
@@ -269,19 +319,55 @@ async function validateAddon({
     }
   }
 
+  const appCssImportPaths = [];
+  for (const stylePath of manifest.styling?.appCss ?? []) {
+    const resolvedStyle = resolveInsideAddon(addonDir, stylePath);
+
+    if (!resolvedStyle) {
+      diagnostics.push(
+        `${addonId} was skipped: styling.appCss entries must stay inside the add-on directory`,
+      );
+      return { entry: null, diagnostics };
+    }
+
+    if (path.extname(resolvedStyle) !== ".css") {
+      diagnostics.push(
+        `${addonId} was skipped: styling.appCss entries must be CSS files`,
+      );
+      return { entry: null, diagnostics };
+    }
+
+    if (!(await pathExists(resolvedStyle))) {
+      diagnostics.push(
+        `${addonId} was skipped: missing app CSS file ${stylePath}`,
+      );
+      return { entry: null, diagnostics };
+    }
+
+    appCssImportPaths.push(normalizeImportPath(outFile, resolvedStyle));
+  }
+
   return {
     entry: {
       id: addonId,
       manifest,
       order: manifest.sidebar?.order ?? 500,
-      entryImportPath: normalizeFrontendImportPath(outFile, entryFile),
+      hasAppCss: appCssImportPaths.length > 0,
+      hasRoute: routeEnabled,
+      entryImportPath,
       iconImportPath: iconFile ? normalizeImportPath(outFile, iconFile) : null,
+      appCssImportPaths,
     },
     diagnostics,
   };
 }
 
 function formatGeneratedRegistry(entries) {
+  const appCssImports = entries.flatMap((entry) =>
+    entry.appCssImportPaths.map(
+      (styleImportPath) => `import ${JSON.stringify(styleImportPath)};`,
+    ),
+  );
   const iconImports = entries
     .filter((entry) => entry.iconImportPath)
     .map(
@@ -294,6 +380,9 @@ function formatGeneratedRegistry(entries) {
     const iconReference = entry.iconImportPath
       ? `\n    Icon: AddonIcon${iconIndex++},`
       : "";
+    const loadReference = entry.entryImportPath
+      ? `\n    load: () => import(${JSON.stringify(entry.entryImportPath)}),`
+      : "";
     const manifestLiteral = JSON.stringify(entry.manifest, null, 4).replace(
       /\n/g,
       "\n    ",
@@ -303,7 +392,8 @@ function formatGeneratedRegistry(entries) {
     id: ${JSON.stringify(entry.id)},
     manifest: ${manifestLiteral},
     order: ${entry.order},
-    load: () => import(${JSON.stringify(entry.entryImportPath)}),${iconReference}
+    hasAppCss: ${entry.hasAppCss},
+    hasRoute: ${entry.hasRoute},${loadReference}${iconReference}
   },`;
   });
 
@@ -313,7 +403,7 @@ function formatGeneratedRegistry(entries) {
   return `// This file is generated by scripts/generate-addons-registry.mjs.
 // Do not edit it by hand.
 import type { AddonRegistryEntry } from "./types";
-${iconImports.length > 0 ? `\n${iconImports.join("\n")}\n` : ""}
+${appCssImports.length > 0 ? `\n${appCssImports.join("\n")}\n` : ""}${iconImports.length > 0 ? `\n${iconImports.join("\n")}\n` : ""}
 export const addonRegistry: AddonRegistryEntry[] = ${registryLiteral};
 `;
 }
