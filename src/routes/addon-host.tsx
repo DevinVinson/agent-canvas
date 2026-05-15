@@ -95,6 +95,10 @@ function LoadedAddonRoute({ entry }: { entry: AddonRegistryEntry }) {
     setLoadState({ status: "loading" });
 
     async function loadAddon() {
+      if (!entry.hasRoute || !entry.load) {
+        throw new Error("This add-on does not register an add-on page.");
+      }
+
       const addonModule = await entry.load();
 
       if (typeof addonModule.default !== "function") {
@@ -164,6 +168,15 @@ export default function AddonHostRoute() {
         message={t(I18nKey.ADDONS$NOT_FOUND_MESSAGE, {
           addonId: addonId ?? "",
         })}
+      />
+    );
+  }
+
+  if (!entry.hasRoute) {
+    return (
+      <AddonStatusPanel
+        title={entry.manifest.title}
+        message="This add-on customizes the Agent Canvas app shell and does not register an add-on page."
       />
     );
   }

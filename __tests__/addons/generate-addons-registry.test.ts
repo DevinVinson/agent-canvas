@@ -74,12 +74,67 @@ describe("generate-addons-registry", () => {
     expect(generated).toContain('id: "valid-addon"');
     expect(generated).toContain('title": "Valid Add-on"');
     expect(generated).toContain("order: 120");
-    expect(generated).toContain(
-      'import("../../addons/valid-addon/src/index")',
-    );
+    expect(generated).toContain("hasAppCss: false");
+    expect(generated).toContain("hasRoute: true");
+    expect(generated).toContain('import("../../addons/valid-addon/src/index")');
     expect(generated).toContain(
       'from "../../addons/valid-addon/src/sidebar.svg?react"',
     );
+  });
+
+  it("discovers style-only add-ons without route entries", async () => {
+    const root = await makeTempRoot();
+    const addonRoot = path.join(root, "addons/canvas-polish");
+
+    await writeJson(path.join(addonRoot, ".openhands/addon.json"), {
+      name: "canvas-polish",
+      title: "Canvas Polish",
+      frontend: { route: false },
+      sidebar: { visible: false },
+      styling: { appCss: ["src/agent-canvas.css"] },
+      compatibility: { addon_api_version: 1 },
+    });
+    await fs.mkdir(path.join(addonRoot, "src"), { recursive: true });
+    await fs.writeFile(
+      path.join(addonRoot, "src/agent-canvas.css"),
+      "[data-agent-canvas-addons~='canvas-polish'] { color: white; }\n",
+    );
+
+    const generated = await runGenerator(root);
+
+    expect(generated).toContain('id: "canvas-polish"');
+    expect(generated).toContain(
+      'import "../../addons/canvas-polish/src/agent-canvas.css";',
+    );
+    expect(generated).toContain('"route": false');
+    expect(generated).toContain('"visible": false');
+    expect(generated).toContain("hasAppCss: true");
+    expect(generated).toContain("hasRoute: false");
+    expect(generated).not.toContain(
+      'import("../../addons/canvas-polish/src/index")',
+    );
+  });
+
+  it("skips add-ons with invalid app CSS entries", async () => {
+    const root = await makeTempRoot();
+    const addonRoot = path.join(root, "addons/broken-styles");
+
+    await writeJson(path.join(addonRoot, ".openhands/addon.json"), {
+      name: "broken-styles",
+      title: "Broken Styles",
+      frontend: { route: false },
+      styling: { appCss: ["src/agent-canvas.scss"] },
+      compatibility: { addon_api_version: 1 },
+    });
+    await fs.mkdir(path.join(addonRoot, "src"), { recursive: true });
+    await fs.writeFile(
+      path.join(addonRoot, "src/agent-canvas.scss"),
+      ".broken { color: white; }\n",
+    );
+
+    const generated = await runGenerator(root);
+
+    expect(generated).not.toContain("broken-styles");
   });
 
   it("skips invalid add-ons", async () => {

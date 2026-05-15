@@ -21,8 +21,29 @@ export function getAddonById(
   return addonById.get(addonId);
 }
 
-export function getAddonSidebarEntries(): AddonRegistryEntry[] {
-  return [...addonRegistry].sort(compareAddonEntries);
+export function getAddonSidebarEntries(
+  entries: AddonRegistryEntry[] = addonRegistry,
+): AddonRegistryEntry[] {
+  return entries
+    .filter(
+      (entry) => entry.hasRoute && entry.manifest.sidebar?.visible !== false,
+    )
+    .sort(compareAddonEntries);
+}
+
+export function getAddonAppStyleEntries(): AddonRegistryEntry[] {
+  return addonRegistry.filter((entry) => entry.hasAppCss);
+}
+
+export function getAddonAppStyleAttribute(
+  entries: AddonRegistryEntry[] = addonRegistry,
+): string | undefined {
+  const addonIds = entries
+    .filter((entry) => entry.hasAppCss)
+    .map((entry) => entry.id)
+    .join(" ");
+
+  return addonIds || undefined;
 }
 
 export { addonRegistry };

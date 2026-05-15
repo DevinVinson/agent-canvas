@@ -15,6 +15,7 @@ import { TelemetryConsentBanner } from "#/components/features/analytics/telemetr
 import { LoadingSpinner } from "#/components/shared/loading-spinner";
 import { useConfig } from "#/hooks/query/use-config";
 import { AgentServerUIRoot } from "#/components/providers";
+import { getAddonAppStyleAttribute } from "#/addons/registry";
 
 // Only rendered when the active backend is unreachable; keep the modal out of
 // the default root graph.
@@ -23,6 +24,8 @@ const ManageBackendsModal = React.lazy(() =>
     default: m.ManageBackendsModal,
   })),
 );
+
+const appStyleAddonAttribute = getAddonAppStyleAttribute();
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -34,7 +37,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body data-agent-server-ui="" style={{ margin: 0 }}>
-        <AgentServerUIRoot contentClassName="min-h-screen">
+        <AgentServerUIRoot
+          contentClassName="min-h-screen"
+          data-agent-canvas-addons={appStyleAddonAttribute}
+        >
           {children}
           <Toaster />
           <TelemetryConsentBanner />

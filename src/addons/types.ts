@@ -7,11 +7,16 @@ export interface AddonManifest {
   name: string;
   title: string;
   frontend: {
-    entry: string;
+    entry?: string;
+    route?: boolean;
   };
   sidebar?: {
     icon?: string;
     order?: number;
+    visible?: boolean;
+  };
+  styling?: {
+    appCss?: string[];
   };
   compatibility?: {
     addon_api_version?: number;
@@ -57,6 +62,8 @@ export interface AddonRegistryEntry {
   id: string;
   manifest: AddonManifest;
   order: number;
-  load: () => Promise<AddonModule>;
+  hasAppCss: boolean;
+  hasRoute: boolean;
+  load?: () => Promise<AddonModule>;
   Icon?: AddonIconComponent;
 }

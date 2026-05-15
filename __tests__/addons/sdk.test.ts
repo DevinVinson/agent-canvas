@@ -11,6 +11,8 @@ const addonEntry: AddonRegistryEntry = {
     frontend: { entry: "src/index.tsx" },
   },
   order: 500,
+  hasAppCss: false,
+  hasRoute: true,
   load: async () => ({
     default: () => ({ Component: () => null }),
   }),
