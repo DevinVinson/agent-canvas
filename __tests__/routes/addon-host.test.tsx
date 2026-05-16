@@ -12,8 +12,8 @@ import type { AddonRegistryEntry } from "#/addons/types";
 
 const getAddonByIdMock = vi.hoisted(() => vi.fn());
 
-vi.mock("#/addons/registry", () => ({
-  getAddonById: getAddonByIdMock,
+vi.mock("#/addons/runtime-registry", () => ({
+  useAddonById: getAddonByIdMock,
 }));
 
 function makeEntry(

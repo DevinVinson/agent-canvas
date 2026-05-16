@@ -77,6 +77,7 @@ const DEFAULT_AUTOMATION_VERSION = "1.0.0a3";
 const DEFAULT_AUTOMATION_SDK_VERSION = "1.22.1";
 const DEFAULT_BACKEND_PORT = 18000;
 const DEFAULT_AUTOMATION_PORT = 18001;
+const DEFAULT_ADDONS_PORT = 18002;
 // Where the auto-generated default automation API key is persisted. Static
 // frontend builds bake VITE_AUTOMATION_API_KEY at build time, so the default
 // must remain stable across restarts and --skip-build reuse.
@@ -85,6 +86,12 @@ const DEFAULT_AUTOMATION_API_KEY_PATH = join(
   ".openhands",
   "agent-canvas",
   "automation-api-key.txt",
+);
+const DEFAULT_ADDONS_API_KEY_PATH = join(
+  homedir(),
+  ".openhands",
+  "agent-canvas",
+  "addons-api-key.txt",
 );
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -286,6 +293,7 @@ async function buildConfig(args, env = process.env) {
   const preferredIngressPort = args.port || parseInt(env.PORT, 10) || 8000;
   const preferredBackendPort = DEFAULT_BACKEND_PORT;
   const preferredAutomationPort = DEFAULT_AUTOMATION_PORT;
+  const preferredAddonsPort = DEFAULT_ADDONS_PORT;
   const preferredVitePort = 3001;
 
   // Find available ports, preferring the defaults
@@ -294,6 +302,7 @@ async function buildConfig(args, env = process.env) {
     { name: "ingress", preferred: preferredIngressPort },
     { name: "backend", preferred: preferredBackendPort },
     { name: "automation", preferred: preferredAutomationPort },
+    { name: "addons", preferred: preferredAddonsPort },
     { name: "vite", preferred: preferredVitePort },
   ]);
 
@@ -319,6 +328,13 @@ async function buildConfig(args, env = process.env) {
       c.yellow,
     );
   }
+  if (ports.addons !== preferredAddonsPort) {
+    logService(
+      "ports",
+      `Port ${preferredAddonsPort} busy, using ${ports.addons} for add-ons`,
+      c.yellow,
+    );
+  }
   if (ports.vite !== preferredVitePort) {
     logService(
       "ports",
@@ -336,6 +352,12 @@ async function buildConfig(args, env = process.env) {
   const localApiKey =
     env.AUTOMATION_LOCAL_API_KEY ||
     getOrCreatePersistedApiKey(automationApiKeyPath, "automation");
+  const addonsApiKeyPath =
+    env.OH_ADDONS_API_KEY_PATH || DEFAULT_ADDONS_API_KEY_PATH;
+  const addonsApiKey =
+    env.OPENHANDS_ADDONS_API_KEY ||
+    env.ADDONS_API_KEY ||
+    getOrCreatePersistedApiKey(addonsApiKeyPath, "addons");
 
   // Session API key for agent-server auth
   // Build a preliminary safe config to get the auto-generated session key
@@ -356,6 +378,7 @@ async function buildConfig(args, env = process.env) {
     // Service ports (internal)
     agentServerPort: ports.backend,
     autoBackendPort: ports.automation,
+    addonsPort: ports.addons,
     vitePort: ports.vite,
     vscodePort,
 
@@ -367,6 +390,7 @@ async function buildConfig(args, env = process.env) {
 
     // Auth
     localApiKey,
+    addonsApiKey,
     sessionApiKey,
 
     verbose: args.verbose,
@@ -597,6 +621,35 @@ function startAutomationBackend(config) {
   );
 }
 
+function startAddonsService(config) {
+  logService("addons", `Starting on port ${config.addonsPort}...`, c.cyan);
+
+  const addonsScript = join(
+    projectRoot,
+    "scripts",
+    "addon-runtime-service.mjs",
+  );
+  spawnService(
+    "addons",
+    "node",
+    [
+      addonsScript,
+      "--host",
+      "127.0.0.1",
+      "--port",
+      config.addonsPort.toString(),
+      "--root",
+      config.canvasPath,
+      "--api-key",
+      config.addonsApiKey,
+    ],
+    {
+      cwd: config.canvasPath,
+      color: c.cyan,
+    },
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Main
 // ═══════════════════════════════════════════════════════════════════════════
@@ -645,6 +698,10 @@ function startIngress(config) {
       "--route",
       `/api/automation=http://localhost:${config.autoBackendPort}`,
       "--route",
+      `/api/addons=http://localhost:${config.addonsPort}`,
+      "--route",
+      `/__agent_canvas_addons=http://localhost:${config.addonsPort}`,
+      "--route",
       `/api=http://localhost:${config.agentServerPort}`,
       "--route",
       `/sockets=http://localhost:${config.agentServerPort}`,
@@ -690,6 +747,7 @@ export function buildAutomationRuntimeServicesInfo(config) {
     // description shown to the agent matches reality.
     frontendKind: config.frontendKind ?? "vite",
     automation: { port: config.autoBackendPort },
+    addons: { port: config.addonsPort },
   });
 }
 
@@ -712,6 +770,8 @@ function startVite(config) {
       VITE_SESSION_API_KEY: config.sessionApiKey,
       // Automation API key for frontend to authenticate with automation backend
       VITE_AUTOMATION_API_KEY: config.localApiKey,
+      // Add-ons API key for runtime add-on rebuild/events calls.
+      VITE_ADDONS_API_KEY: config.addonsApiKey,
       // Inform the frontend (and downstream, the agent's system prompt) about
       // which services are available in this dev stack.
       VITE_RUNTIME_SERVICES_INFO: JSON.stringify(runtimeServicesInfo),
@@ -737,19 +797,21 @@ function startVite(config) {
  * @param {number} options.timeoutMs - Request timeout in ms (default: 10000)
  * @returns {Promise<boolean>} True if seeding succeeded, false otherwise
  */
-async function seedAutomationSecret(config, options = {}) {
+async function seedAgentServerSecret(
+  config,
+  secretName,
+  secretValue,
+  secretDescription,
+  options = {},
+) {
   const { maxRetries = 5, retryDelayMs = 2000, timeoutMs = 10000 } = options;
-
-  const secretName = "OPENHANDS_AUTOMATION_API_KEY";
-  const secretDescription =
-    "API key for authenticating with the automation backend";
 
   logService("secrets", `Seeding ${secretName} into agent-server...`, c.dim);
 
   const url = `http://localhost:${config.agentServerPort}/api/settings/secrets`;
   const body = JSON.stringify({
     name: secretName,
-    value: config.localApiKey,
+    value: secretValue,
     description: secretDescription,
   });
 
@@ -818,6 +880,26 @@ async function seedAutomationSecret(config, options = {}) {
     c.yellow,
   );
   return false;
+}
+
+async function seedAutomationSecret(config, options = {}) {
+  return seedAgentServerSecret(
+    config,
+    "OPENHANDS_AUTOMATION_API_KEY",
+    config.localApiKey,
+    "API key for authenticating with the automation backend",
+    options,
+  );
+}
+
+async function seedAddonsSecret(config, options = {}) {
+  return seedAgentServerSecret(
+    config,
+    "OPENHANDS_ADDONS_API_KEY",
+    config.addonsApiKey,
+    "API key for authenticating with the Agent Canvas runtime add-on service",
+    options,
+  );
 }
 
 function printBanner(config) {
@@ -944,6 +1026,7 @@ async function main(options = {}) {
   // Note: seedAutomationSecret has its own retry logic if server is still warming up
   if (agentServerReady) {
     await seedAutomationSecret(config);
+    await seedAddonsSecret(config);
   } else {
     logService(
       "secrets",
@@ -955,17 +1038,20 @@ async function main(options = {}) {
   // 3. Start automation backend
   startAutomationBackend(config);
 
-  // 4. Start frontend server (Vite dev server OR static server)
+  // 4. Start runtime add-on service
+  startAddonsService(config);
+
+  // 5. Start frontend server (Vite dev server OR static server)
   if (useStaticMode) {
     startStaticFrontend(config, staticDir);
   } else {
     startVite(config);
   }
 
-  // 5. Wait for services to be ready
+  // 6. Wait for services to be ready
   await delay(2000);
 
-  // 6. Start ingress proxy (routes traffic to all backends)
+  // 7. Start ingress proxy (routes traffic to all backends)
   startIngress(config);
 
   // Wait for ingress to start
@@ -993,6 +1079,10 @@ function startStaticFrontend(config, staticDir) {
       // Proxy routes to backends (same as ingress but for direct access to vitePort)
       "--route",
       `/api/automation=http://localhost:${config.autoBackendPort}`,
+      "--route",
+      `/api/addons=http://localhost:${config.addonsPort}`,
+      "--route",
+      `/__agent_canvas_addons=http://localhost:${config.addonsPort}`,
       "--route",
       `/api=http://localhost:${config.agentServerPort}`,
       "--route",
@@ -1041,7 +1131,9 @@ export {
   DEFAULT_AUTOMATION_SDK_VERSION,
   DEFAULT_BACKEND_PORT,
   DEFAULT_AUTOMATION_PORT,
+  DEFAULT_ADDONS_PORT,
   DEFAULT_AUTOMATION_API_KEY_PATH,
+  DEFAULT_ADDONS_API_KEY_PATH,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

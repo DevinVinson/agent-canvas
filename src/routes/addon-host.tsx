@@ -7,7 +7,7 @@ import { LoadingSpinner } from "#/components/shared/loading-spinner";
 import { useNavigation } from "#/context/navigation-context";
 import { createAddonApi } from "#/addons/sdk";
 import { AddonErrorBoundary } from "#/addons/addon-error-boundary";
-import { getAddonById } from "#/addons/registry";
+import { useAddonById } from "#/addons/runtime-registry";
 import type {
   AddonApi,
   AddonPageProps,
@@ -159,7 +159,7 @@ export default function AddonHostRoute() {
   const { t } = useTranslation("openhands");
   const params = useParams();
   const addonId = params.addonId;
-  const entry = getAddonById(addonId);
+  const entry = useAddonById(addonId);
 
   if (!entry) {
     return (

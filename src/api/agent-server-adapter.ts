@@ -91,6 +91,15 @@ interface RuntimeServicesInfo {
       openapi_url?: string;
       auth_env_var?: string;
     };
+    addons?: {
+      description?: string;
+      url_from_agent?: string;
+      api_prefix?: string;
+      events_path?: string;
+      asset_prefix?: string;
+      auth_env_var?: string;
+      source_dir?: string;
+    };
   };
 }
 
@@ -135,7 +144,7 @@ export function buildRuntimeServicesSystemSuffix(): string | undefined {
     "",
   );
 
-  const { agent_server, ingress, automation } = info.services;
+  const { agent_server, ingress, automation, addons } = info.services;
   // Accept `frontend` (current key) or `vite` (legacy key) for the
   // frontend service entry. The legacy fallback can be removed once all
   // launchers in this repo emit `frontend`.
@@ -178,6 +187,28 @@ export function buildRuntimeServicesSystemSuffix(): string | undefined {
   } else {
     lines.push(
       "* Automation backend: not running in this dev mode (skip /api/automation calls).",
+    );
+  }
+  if (addons?.url_from_agent) {
+    const apiPrefix = addons.api_prefix ?? "/api/addons";
+    lines.push(
+      `* Runtime add-ons: ${addons.url_from_agent}`,
+      `    ${addons.description ?? "Agent Canvas runtime add-on service."}`,
+      `    Source: ${addons.source_dir ?? "$HOME/.openhands/agent-canvas/addons"}`,
+      `    Rebuild: POST ${addons.url_from_agent}${apiPrefix}/rebuild`,
+    );
+    if (addons.events_path) {
+      lines.push(`    Events:  ${addons.url_from_agent}${addons.events_path}`);
+    }
+    if (addons.asset_prefix) {
+      lines.push(`    Assets:  ${addons.asset_prefix}`);
+    }
+    if (addons.auth_env_var) {
+      lines.push(`    Auth:    header 'X-API-Key: $${addons.auth_env_var}'`);
+    }
+  } else {
+    lines.push(
+      "* Runtime add-ons: not running in this dev mode (skip /api/addons calls).",
     );
   }
 

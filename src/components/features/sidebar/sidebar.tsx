@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Plus,
   Puzzle,
+  RefreshCw,
   Server,
   Settings,
 } from "lucide-react";
@@ -25,7 +26,10 @@ import { useSidebarCollapsedState } from "#/hooks/use-sidebar-collapsed";
 import { useClickOutsideElement } from "#/hooks/use-click-outside-element";
 import { useBackendsHealth } from "#/hooks/query/use-backends-health";
 import AutomationsIcon from "#/icons/automations.svg?react";
-import { getAddonSidebarEntries } from "#/addons/registry";
+import {
+  useAddonRegistry,
+  useAddonSidebarEntries,
+} from "#/addons/runtime-registry";
 
 // The LLM settings modal is only mounted when the settings query 404s and
 // LLM settings aren't hidden — keep it out of the sidebar's eager graph.
@@ -114,6 +118,8 @@ export function Sidebar() {
   ]);
 
   const linkDisabled = settings?.email_verified === false;
+  const addonSidebarEntries = useAddonSidebarEntries();
+  const { refreshRuntimeAddons } = useAddonRegistry();
 
   const collapseToggleLabel = t(
     collapsed ? I18nKey.SIDEBAR$EXPAND : I18nKey.SIDEBAR$COLLAPSE,
@@ -149,8 +155,6 @@ export function Sidebar() {
     currentPath.startsWith("/skills") ||
     currentPath === "/plugins" ||
     currentPath === "/mcp";
-  const addonSidebarEntries = React.useMemo(() => getAddonSidebarEntries(), []);
-
   return (
     <SidebarCollapseContext.Provider value={collapsed}>
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the aside acts as a hit-area for the collapsed rail; nested controls handle their own keyboard interactions. */}
@@ -335,10 +339,37 @@ export function Sidebar() {
                 testId={`sidebar-addon-${addon.id}-link`}
                 disabled={linkDisabled}
                 collapsed={collapsed}
-                icon={<AddonIcon width={ICON_SIZE} height={ICON_SIZE} />}
+                icon={
+                  addon.Icon ? (
+                    <AddonIcon width={ICON_SIZE} height={ICON_SIZE} />
+                  ) : addon.iconUrl ? (
+                    <img
+                      src={addon.iconUrl}
+                      width={ICON_SIZE}
+                      height={ICON_SIZE}
+                      alt=""
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Puzzle width={ICON_SIZE} height={ICON_SIZE} />
+                  )
+                }
               />
             );
           })}
+          <button
+            type="button"
+            aria-label="Refresh add-ons"
+            data-testid="sidebar-refresh-addons-button"
+            disabled={linkDisabled}
+            onClick={refreshRuntimeAddons}
+            className={cn(
+              "inline-flex items-center justify-center rounded-md text-[var(--oh-muted)] transition-colors hover:bg-[var(--oh-surface-raised)] hover:text-white",
+              collapsed ? "mx-auto h-10 w-10" : "h-8 w-8 self-start",
+            )}
+          >
+            <RefreshCw width={16} height={16} aria-hidden="true" />
+          </button>
         </nav>
 
         <SidebarConversationList />

@@ -16,12 +16,14 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it, afterEach } from "vitest";
 import {
   buildAutomationCommand,
+  buildAutomationRuntimeServicesInfo,
   buildConfig,
   DEFAULT_AUTOMATION_REPO,
   DEFAULT_AUTOMATION_PACKAGE,
   DEFAULT_AUTOMATION_VERSION,
   DEFAULT_BACKEND_PORT,
   DEFAULT_AUTOMATION_PORT,
+  DEFAULT_ADDONS_PORT,
 } from "../../scripts/dev-with-automation.mjs";
 import { resetPersistedSessionApiKeyCache } from "../../scripts/dev-safe.mjs";
 
@@ -143,6 +145,7 @@ describe("buildConfig", () => {
     return {
       OH_SESSION_API_KEY_PATH: path.join(dir, "session-api-key.txt"),
       OH_AUTOMATION_API_KEY_PATH: path.join(dir, "automation-api-key.txt"),
+      OH_ADDONS_API_KEY_PATH: path.join(dir, "addons-api-key.txt"),
       ...extra,
     };
   }
@@ -157,18 +160,21 @@ describe("buildConfig", () => {
     expect(config.agentServerPort).toBeGreaterThan(0);
     expect(typeof config.autoBackendPort).toBe("number");
     expect(config.autoBackendPort).toBeGreaterThan(0);
+    expect(typeof config.addonsPort).toBe("number");
+    expect(config.addonsPort).toBeGreaterThan(0);
     expect(typeof config.vitePort).toBe("number");
     expect(config.vitePort).toBeGreaterThan(0);
     expect(config.vscodePort).toBe(config.agentServerPort + 1000);
 
-    // All four main ports should be unique
+    // All main ports should be unique
     const ports = new Set([
       config.ingressPort,
       config.agentServerPort,
       config.autoBackendPort,
+      config.addonsPort,
       config.vitePort,
     ]);
-    expect(ports.size).toBe(4);
+    expect(ports.size).toBe(5);
   });
 
   it("respects preferred port from args when available", async () => {
@@ -212,6 +218,7 @@ describe("buildConfig", () => {
     // All service ports should be valid
     expect(config.agentServerPort).toBeGreaterThan(0);
     expect(config.autoBackendPort).toBeGreaterThan(0);
+    expect(config.addonsPort).toBeGreaterThan(0);
     expect(config.vitePort).toBeGreaterThan(0);
     expect(config.vscodePort).toBeGreaterThan(0);
 
@@ -219,6 +226,7 @@ describe("buildConfig", () => {
     const servicePorts = [
       config.agentServerPort,
       config.autoBackendPort,
+      config.addonsPort,
       config.vitePort,
       config.ingressPort,
     ];
@@ -304,6 +312,24 @@ describe("buildConfig", () => {
     );
 
     expect(config.localApiKey).toBe("my-custom-key");
+  });
+
+  it("uses and reuses a persisted add-ons API key by default", async () => {
+    const env = envWithIsolatedKeyPath();
+    const first = await buildConfig({}, env);
+    const second = await buildConfig({}, env);
+
+    expect(first.addonsApiKey).toMatch(/^[0-9a-f]{64}$/);
+    expect(second.addonsApiKey).toBe(first.addonsApiKey);
+  });
+
+  it("respects custom OPENHANDS_ADDONS_API_KEY from env", async () => {
+    const config = await buildConfig(
+      {},
+      envWithIsolatedKeyPath({ OPENHANDS_ADDONS_API_KEY: "my-addons-key" }),
+    );
+
+    expect(config.addonsApiKey).toBe("my-addons-key");
   });
 
   it("falls back to a freshly persisted session API key by default", async () => {
@@ -410,6 +436,31 @@ describe("default constants", () => {
 
   it("has expected default automation port", () => {
     expect(DEFAULT_AUTOMATION_PORT).toBe(18001);
+  });
+
+  it("has expected default add-ons port", () => {
+    expect(DEFAULT_ADDONS_PORT).toBe(18002);
+  });
+});
+
+describe("buildAutomationRuntimeServicesInfo", () => {
+  it("includes runtime add-ons service metadata", () => {
+    const info = buildAutomationRuntimeServicesInfo({
+      mode: "dev:docker",
+      agentHostAlias: "host.docker.internal",
+      agentServerPort: 8000,
+      ingressPort: 8000,
+      vitePort: 3001,
+      frontendKind: "static",
+      autoBackendPort: 18001,
+      addonsPort: 18002,
+    }) as any;
+
+    expect(info.services.addons).toMatchObject({
+      url_from_agent: "http://host.docker.internal:18002",
+      api_prefix: "/api/addons",
+      auth_env_var: "OPENHANDS_ADDONS_API_KEY",
+    });
   });
 });
 

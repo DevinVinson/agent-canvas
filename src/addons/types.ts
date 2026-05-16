@@ -72,4 +72,10 @@ export interface AddonRegistryEntry {
   hasRoute: boolean;
   load?: () => Promise<AddonModule>;
   Icon?: AddonIconComponent;
+  entryUrl?: string;
+  styleUrls?: string[];
+  appStyleUrls?: string[];
+  iconUrl?: string;
+  builtAt?: string;
+  runtimeVersion?: string;
 }

@@ -647,6 +647,13 @@ export function buildAgentServerEnv(config) {
  *   prefix all automation routes are mounted under.
  * @param {string} [options.automation.authEnvVar="OPENHANDS_AUTOMATION_API_KEY"]
  *   - Env var holding the API key.
+ * @param {object} [options.addons] - Runtime add-on service info. Skipped
+ *   entirely if `.port` is missing.
+ * @param {number} [options.addons.port] - Runtime add-on service port.
+ * @param {string} [options.addons.apiPrefix="/api/addons"] - Path prefix
+ *   all add-on service routes are mounted under.
+ * @param {string} [options.addons.authEnvVar="OPENHANDS_ADDONS_API_KEY"]
+ *   - Env var holding the API key.
  * @returns {object} A JSON-serializable runtime services info object.
  */
 export function buildRuntimeServicesInfo(options) {
@@ -660,6 +667,7 @@ export function buildRuntimeServicesInfo(options) {
     frontendPort = vitePort,
     frontendKind = "vite",
     automation,
+    addons,
   } = options;
 
   if (agentServerPort === undefined || agentServerPort === null) {
@@ -686,8 +694,8 @@ export function buildRuntimeServicesInfo(options) {
     services.ingress = {
       description:
         "Unified entry point. Routes /api/automation/* to the automation " +
-        "backend, /api/* and /sockets to the agent-server, and /* to the " +
-        "frontend.",
+        "backend, /api/addons/* to the runtime add-on service, /api/* and " +
+        "/sockets to the agent-server, and /* to the frontend.",
       url_from_agent: `http://${agentHostAlias}:${ingressPort}`,
     };
   }
@@ -719,6 +727,25 @@ export function buildRuntimeServicesInfo(options) {
       docs_url: `${baseUrl}${apiPrefix}/docs`,
       openapi_url: `${baseUrl}${apiPrefix}/openapi.json`,
       auth_env_var: authEnvVar,
+    };
+  }
+
+  if (addons?.port !== undefined && addons.port !== null) {
+    const apiPrefix = addons.apiPrefix ?? "/api/addons";
+    const authEnvVar = addons.authEnvVar ?? "OPENHANDS_ADDONS_API_KEY";
+    const baseUrl = `http://${agentHostAlias}:${addons.port}`;
+    services.addons = {
+      description:
+        "Agent Canvas runtime add-on service. Create or edit add-ons under " +
+        "$HOME/.openhands/agent-canvas/addons, then POST to " +
+        `'${apiPrefix}/rebuild' to build and activate them. Authenticate ` +
+        `with header 'X-API-Key: $${authEnvVar}'.`,
+      url_from_agent: baseUrl,
+      api_prefix: apiPrefix,
+      events_path: `${apiPrefix}/events`,
+      asset_prefix: "/__agent_canvas_addons",
+      auth_env_var: authEnvVar,
+      source_dir: "$HOME/.openhands/agent-canvas/addons",
     };
   }
 

@@ -47,6 +47,9 @@ export function buildFrontend(config, args = {}) {
       // Bake the automation backend API key so the static frontend can talk
       // to /api/automation through the ingress.
       VITE_AUTOMATION_API_KEY: config.localApiKey,
+      // Bake the add-on runtime API key so the static frontend can listen to
+      // /api/addons/events and request explicit rebuilds.
+      VITE_ADDONS_API_KEY: config.addonsApiKey,
       // Bake the same session key the agent-server accepts. Without this,
       // a fresh browser session seeds the Local backend with an empty key and
       // all authenticated agent-server calls fail with 401.

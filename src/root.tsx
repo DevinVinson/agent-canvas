@@ -16,6 +16,7 @@ import { LoadingSpinner } from "#/components/shared/loading-spinner";
 import { useConfig } from "#/hooks/query/use-config";
 import { AgentServerUIRoot } from "#/components/providers";
 import { getAddonAppStyleAttribute } from "#/addons/registry";
+import { AddonRegistryProvider } from "#/addons/runtime-registry";
 import {
   applyColorTheme,
   readPersistedColorTheme,
@@ -54,7 +55,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           data-agent-canvas-addons={appStyleAddonAttribute}
         >
           <ColorThemeApplier />
-          {children}
+          <AddonRegistryProvider>{children}</AddonRegistryProvider>
           <Toaster />
           <TelemetryConsentBanner />
           <div id="modal-portal-exit" />

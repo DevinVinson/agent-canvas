@@ -24,8 +24,9 @@
 - When the agent-canvas dev launchers (`npm run dev:safe` / `dev:automation` / `dev:docker` / the published `agent-canvas` binary) start a stack, they set a `VITE_RUNTIME_SERVICES_INFO` env var on the frontend describing which services are running and how the agent should reach them. The frontend forwards this verbatim as `AgentContext.system_message_suffix` on every `POST /api/conversations`, so conversations land with a `<RUNTIME_SERVICES>` block appended to the system prompt.
 - The block lists URLs **from the agent's point of view**:
   - The Agent Server is always reachable as `http://localhost:<port>` from inside the sandbox — but that is _you_, not the automation backend.
-  - Host-side services (ingress, Vite, automation) are reachable as `http://localhost:<port>` in dockerless modes and `http://host.docker.internal:<port>` in `dev:docker`.
+  - Host-side services (ingress, Vite, automation, runtime add-ons) are reachable as `http://localhost:<port>` in dockerless modes and `http://host.docker.internal:<port>` in `dev:docker`.
 - Agents should treat the `<RUNTIME_SERVICES>` block as authoritative: don't hardcode `localhost:8000` for "the automation server", and don't probe random ports trying to discover services. If the block says automation is not running, skip `/api/automation` calls; otherwise use the listed `url_from_agent` + `api_prefix` (default `/api/automation`) and the `X-API-Key: $OPENHANDS_AUTOMATION_API_KEY` header.
+- Runtime add-ons are edited under `$HOME/.openhands/agent-canvas/addons/<addon-id>` and are activated by an explicit `POST <runtime-addons-url>/api/addons/rebuild` with `X-API-Key: $OPENHANDS_ADDONS_API_KEY`. Do not rely on Docker hot reload or frontend polling; open browser tabs receive rebuild notifications through `/api/addons/events`.
 - The launcher → frontend → suffix plumbing is:
   - `scripts/dev-safe.mjs::buildRuntimeServicesInfo()` — pure helper that constructs the info object.
   - `scripts/dev-with-automation.mjs::buildAutomationRuntimeServicesInfo()` — wraps it with automation details; called from both Vite spawn (`startVite`) and the static build (`static-build.mjs`).
@@ -61,6 +62,15 @@ The env var is a JSON string of:
       "docs_url": "http://host.docker.internal:18001/api/automation/docs",
       "openapi_url": "http://host.docker.internal:18001/api/automation/openapi.json",
       "auth_env_var": "OPENHANDS_AUTOMATION_API_KEY"
+    },
+    "addons": {
+      "description": "Agent Canvas runtime add-on service. Create or edit add-ons under $HOME/.openhands/agent-canvas/addons, then POST to '/api/addons/rebuild' to build and activate them.",
+      "url_from_agent": "http://host.docker.internal:18002",
+      "api_prefix": "/api/addons",
+      "events_path": "/api/addons/events",
+      "asset_prefix": "/__agent_canvas_addons",
+      "auth_env_var": "OPENHANDS_ADDONS_API_KEY",
+      "source_dir": "$HOME/.openhands/agent-canvas/addons"
     }
   }
 }
@@ -87,6 +97,13 @@ from your point of view (i.e., as you should curl/fetch them).
     Docs:    http://host.docker.internal:18001/api/automation/docs
     OpenAPI: http://host.docker.internal:18001/api/automation/openapi.json
     Auth:    header 'X-API-Key: $OPENHANDS_AUTOMATION_API_KEY'
+* Runtime add-ons: http://host.docker.internal:18002
+    Agent Canvas runtime add-on service. Create or edit add-ons under $HOME/.openhands/agent-canvas/addons, then POST to '/api/addons/rebuild' to build and activate them.
+    Source:  $HOME/.openhands/agent-canvas/addons
+    Rebuild: POST http://host.docker.internal:18002/api/addons/rebuild
+    Events:  http://host.docker.internal:18002/api/addons/events
+    Assets:  /__agent_canvas_addons
+    Auth:    header 'X-API-Key: $OPENHANDS_ADDONS_API_KEY'
 
 Trust this block over guessing: do not assume any other URLs are running.
 In particular, http://localhost:8000 inside your sandbox is the Agent Server
@@ -159,6 +176,7 @@ you are running inside of — NOT the automation backend.
 
 - `@openhands/typescript-client` is currently pinned to commit `ef62e82fc3dfb03991a1c8025429caf354427263` because the package metadata needed by this PR has not been published as a consistent npm/tagged release yet. That commit ships the needed typed clients plus subpath exports for `client/http-client`, `events/remote-events-list`, and `workspace/remote-workspace`. `RemoteWorkspace.gitChanges`/`gitDiff` accept an optional `{ ref }` option; agent-canvas passes `'HEAD'` so the changes panel reflects working-tree + index versus the latest commit (i.e. staged + unstaged) instead of a diff against the upstream/default branch.
 - The `@openhands/typescript-client` git dep must be expressed as a `git+https://github.com/...` URL in both `package.json` and the top-level dep entry of `package-lock.json`; the `github:OpenHands/...` shorthand normalizes to `git+ssh://` inside the lockfile, and Vercel's build environment has no GitHub SSH key, so an ssh-pinned lockfile makes Vercel fall back to a stale cached tarball and the bundler then fails with `[MISSING_EXPORT] ConversationClient/FileClient/SharedClient is not exported by .../dist/clients.js`. `scripts/vercel-install.sh` (wired up via `vercel.json`'s `installCommand`) defensively rewrites any leftover `git+ssh://git@github.com/` resolved URLs to `git+https://github.com/` and adds matching `git config --global url..insteadOf` aliases before invoking `npm ci`, so a future regression that re-introduces an ssh-pinned lockfile entry still builds on Vercel. See GitHub issue #384 for the original failure and PR #382 for the prior single-shot lockfile fix that this generalizes.
+
 ## API Access Rules
 
 Two strict conventions govern every REST call in the frontend. Violations break CI
@@ -171,6 +189,7 @@ All calls that target the local agent-server (`/api/*`, `/server_info`, `/socket
 raw `axios`, `fetch`, or the legacy shared `openHands` axios instance.
 
 Available clients and their subpath imports:
+
 - `ConversationClient` -- `@openhands/typescript-client/clients`
 - `FileClient` -- `@openhands/typescript-client/clients`
 - `VSCodeClient` -- `@openhands/typescript-client/clients`
@@ -180,6 +199,7 @@ Available clients and their subpath imports:
 - `RemoteEventsList` -- `@openhands/typescript-client/events/remote-events-list`
 
 Client options are always assembled via helpers in `src/api/agent-server-client-options.ts`:
+
 - `getAgentServerClientOptions(overrides?)` -- for SDK client constructors
 - `getAgentServerHttpClientOptions(overrides?)` -- for `HttpClient`-based callers
 
@@ -188,8 +208,12 @@ registry and env config, so callers never hardcode URLs or auth tokens.
 
 ```ts
 // CORRECT
-const data = await new ConversationClient(getAgentServerClientOptions()).getConversation(id);
-const file = await new FileClient(getAgentServerClientOptions()).downloadTextFile(path);
+const data = await new ConversationClient(
+  getAgentServerClientOptions(),
+).getConversation(id);
+const file = await new FileClient(
+  getAgentServerClientOptions(),
+).downloadTextFile(path);
 
 // WRONG -- raw axios/fetch calls fail the no-direct-agent-server-calls.test.ts guard
 const data = await axios.get(`${host}/api/conversations/${id}`);
@@ -197,6 +221,7 @@ const data = await fetch(`/api/conversations/${id}`);
 ```
 
 **Allowed exceptions** (files that may use axios directly for infrastructure reasons):
+
 - `src/api/automation-service/automation-service.api.ts`
 - `src/api/cloud/proxy.ts` -- the proxy envelope POST itself
 
@@ -233,6 +258,7 @@ const result = await axios.get(`${backend.host}/api/v1/app-conversations`);
 ```
 
 `callCloudProxy` key options:
+
 - `backend` -- the cloud `Backend` object (provides host and bearer token)
 - `hostOverride` -- override for runtime-sandbox calls; replaces `backend.host`
 - `authMode` -- `"bearer"` (default, cloud SaaS) | `"session-api-key"` (runtime sandbox) | `"none"`
