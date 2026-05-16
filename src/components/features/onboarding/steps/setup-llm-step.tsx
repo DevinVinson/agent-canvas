@@ -110,14 +110,14 @@ export function SetupLlmStep({ onBack, onNext }: SetupLlmStepProps) {
         <h2 className="text-2xl font-semibold text-white">
           {t(I18nKey.ONBOARDING$LLM_TITLE)}
         </h2>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-[var(--oh-muted)]">
           {t(I18nKey.ONBOARDING$LLM_SUBTITLE)}
         </p>
       </header>
 
       <div
         data-testid="onboarding-llm-settings"
-        className="flex-1 min-h-0 flex flex-col"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto custom-scrollbar-always"
       >
         <LlmSettingsScreen
           embedded

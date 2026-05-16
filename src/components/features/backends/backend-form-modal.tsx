@@ -30,11 +30,77 @@ function inferKindFromHost(host: string): BackendKind {
   return "local";
 }
 
+/**
+ * Returns true for hostnames that represent a local / private-network address.
+ * Used by normalizeHost to choose http:// instead of https://.
+ */
+function isLocalAddress(hostname: string): boolean {
+  // Strip IPv6 bracket notation: [::1] → ::1
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  // IPv6 loopback, any-address, and named loopback
+  if (h === "localhost" || h === "::1" || h === "::" || h === "0.0.0.0")
+    return true;
+  // 127.x.x.x loopback range + IPv4-mapped loopback (::ffff:127.x.x.x)
+  if (/^127\./.test(h) || /^::ffff:127\./i.test(h)) return true;
+  // RFC 1918 private ranges
+  if (/^10\./.test(h)) return true;
+  if (/^192\.168\./.test(h)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) return true;
+  // IPv6 link-local (fe80::/10) and unique local (fc00::/7)
+  if (/^fe[89ab][0-9a-f]:/i.test(h)) return true;
+  if (/^f[cd][0-9a-f]{2}:/i.test(h)) return true;
+  // mDNS / Bonjour (.local)
+  if (h.endsWith(".local")) return true;
+  // Single-label hostnames (no dots, no colons) are local network names.
+  // Colons are excluded so bare IPv6 addresses don't accidentally match.
+  if (!h.includes(".") && !h.includes(":")) return true;
+  return false;
+}
+
 function normalizeHost(host: string): string {
   const trimmed = host.trim().replace(/\/+$/, "");
   if (!trimmed) return "";
+  // Already has an explicit scheme — respect it.
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
+  // Extract the pure hostname for scheme selection, handling three cases:
+  //   [::1]:8080  → bracket IPv6 notation → extract ::1
+  //   ::1         → bare IPv6 (multiple colons, no bracket) → whole string
+  //   host:port   → regular host:port → part before the colon
+  const bracketMatch = trimmed.match(/^\[([^\]]+)\]/);
+  const hostname = bracketMatch
+    ? bracketMatch[1]
+    : (trimmed.match(/:/g) ?? []).length > 1
+      ? trimmed
+      : trimmed.split(":")[0];
+  const scheme = isLocalAddress(hostname) ? "http" : "https";
+  return `${scheme}://${trimmed}`;
+}
+
+/**
+ * Returns true when `host` represents a reachable backend URL.
+ *
+ * Rules (applied in order):
+ *   1. Must be non-empty after trimming.
+ *   2. Must contain no whitespace — spaces can never appear in a host/port.
+ *   3. After normalisation (bare hosts get `https://` prepended), must parse
+ *      as a valid http or https URL with a non-empty hostname.
+ */
+function isValidHostUrl(host: string): boolean {
+  const trimmed = host.trim();
+  if (!trimmed) return false;
+  // Spaces anywhere in the input are an immediate rejection.
+  if (/\s/.test(trimmed)) return false;
+  const normalized = normalizeHost(trimmed);
+  if (!normalized) return false;
+  try {
+    const url = new URL(normalized);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.hostname.length > 0
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -100,10 +166,10 @@ function BackendStatusBadge({
           {statusLabel}
         </span>
         <span className="text-tertiary-alt">·</span>
-        <span className="text-gray-300">{kindLabel}</span>
+        <span className="text-[var(--oh-text-tertiary)]">{kindLabel}</span>
         {version ? (
           <span
-            className="text-xs text-gray-400"
+            className="text-xs text-[var(--oh-muted)]"
             data-testid={`${testIdRoot}-version`}
           >
             {t(I18nKey.BACKEND$VERSION_LABEL, { version })}
@@ -119,7 +185,7 @@ function BackendStatusBadge({
           <span className="font-semibold text-red-300">
             {t(I18nKey.BACKEND$HEALTH_FAILED_TITLE)}
           </span>
-          <span className="text-xs text-gray-300">
+          <span className="text-xs text-[var(--oh-text-tertiary)]">
             {t(I18nKey.BACKEND$HEALTH_FAILED_DETAIL, {
               count: consecutiveFailures,
             })}
@@ -194,6 +260,10 @@ export function BackendForm({
   // already chose one, so don't re-infer over their choice.
   const [touchedKind, setTouchedKind] = React.useState(mode === "edit");
 
+  // Inline validation: only show errors after the user has left a field.
+  const [nameTouched, setNameTouched] = React.useState(false);
+  const [hostTouched, setHostTouched] = React.useState(false);
+
   // Auto-infer kind from host when user hasn't explicitly selected a kind via radio
   React.useEffect(() => {
     if (!touchedKind && host) {
@@ -206,12 +276,29 @@ export function BackendForm({
 
   const canSubmit =
     name.trim().length > 0 &&
-    host.trim().length > 0 &&
+    isValidHostUrl(host) &&
     (kind === "local" || apiKey.trim().length > 0);
+
+  // Error messages — only surfaced after the user has blurred the field.
+  const nameError =
+    nameTouched && !name.trim() ? t(I18nKey.BACKEND$NAME_REQUIRED) : undefined;
+  const hostError = hostTouched
+    ? !host.trim()
+      ? t(I18nKey.BACKEND$HOST_REQUIRED)
+      : !isValidHostUrl(host)
+        ? t(I18nKey.BACKEND$HOST_INVALID)
+        : undefined
+    : undefined;
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit) {
+      // Mark all validated fields as touched so inline errors become visible
+      // (e.g. user pressed Enter before filling required fields).
+      setNameTouched(true);
+      setHostTouched(true);
+      return;
+    }
 
     const payload = {
       name: name.trim(),
@@ -248,8 +335,11 @@ export function BackendForm({
         label={t(I18nKey.BACKEND$NAME_LABEL)}
         value={name}
         onChange={setName}
+        onBlur={() => setNameTouched(true)}
         placeholder="Production"
         className="w-full"
+        showRequiredTag
+        error={nameError}
       />
 
       <SettingsInput
@@ -259,8 +349,11 @@ export function BackendForm({
         label={t(I18nKey.BACKEND$HOST_LABEL)}
         value={host}
         onChange={setHost}
+        onBlur={() => setHostTouched(true)}
         placeholder="https://app.all-hands.dev"
         className="w-full"
+        showRequiredTag
+        error={hostError}
       />
 
       {/* Device Flow auth for cloud backends in add mode - always visible */}
@@ -270,16 +363,16 @@ export function BackendForm({
             host={host}
             onSuccess={setApiKey}
             testIdRoot={testIdRoot}
-            isDisabled={host.trim().length === 0}
+            isDisabled={!name.trim() || !isValidHostUrl(host)}
           />
 
           {/* Divider with "or" */}
           <div className="flex items-center gap-3">
-            <div className="flex-1 border-t border-gray-600" />
-            <span className="text-xs text-gray-500 uppercase">
+            <div className="flex-1 border-t border-[var(--oh-border)]" />
+            <span className="text-xs text-[var(--oh-text-subtle)] uppercase">
               {t(I18nKey.BACKEND$LOGIN_OR)}
             </span>
-            <div className="flex-1 border-t border-gray-600" />
+            <div className="flex-1 border-t border-[var(--oh-border)]" />
           </div>
 
           {/* Manual API key section */}
@@ -294,7 +387,7 @@ export function BackendForm({
               placeholder=""
               className="w-full"
             />
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-[var(--oh-muted)]">
               {t(I18nKey.BACKEND$KEY_DOCS_HINT)}{" "}
               <a
                 href="https://docs.openhands.dev/openhands/usage/settings/api-keys-settings"
@@ -358,7 +451,7 @@ export function BackendForm({
               {t(I18nKey.BACKEND$KIND_CLOUD)}
             </label>
           </div>
-          <p className="text-xs text-gray-400 mt-3">
+          <p className="text-xs text-[var(--oh-muted)] mt-3">
             {kind === "cloud"
               ? t(I18nKey.BACKEND$KEY_HELPER_CLOUD)
               : t(I18nKey.BACKEND$KEY_HELPER_LOCAL)}
@@ -418,13 +511,13 @@ export function BackendFormModal({
     >
       <div
         data-testid={`${testIdRoot}-modal`}
-        className="bg-base-secondary p-6 rounded-xl flex flex-col gap-4 border border-tertiary"
+        className="bg-base-secondary p-6 rounded-xl flex flex-col gap-4 border border-[var(--oh-border)]"
         style={{ width: "480px" }}
       >
         <div className="flex flex-col gap-1">
           <h3 className="text-xl font-bold">{t(titleKey)}</h3>
           {mode === "add" ? (
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-[var(--oh-muted)]">
               {t(I18nKey.BACKEND$ADD_SUBTITLE)}
             </p>
           ) : null}
