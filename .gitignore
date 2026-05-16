@@ -1,6 +1,7 @@
 # i18n translation files make by script using `make build`
 public/locales/**/*
 src/i18n/declaration.ts
+src/addons/registry.generated.ts
 .env
 .envrc
 node_modules/
@@ -8,6 +9,8 @@ build/
 logs/
 /.tmp/live-e2e-state/
 dist/
+/addons/*
+!/addons/.gitkeep
 
 
 /test-results/

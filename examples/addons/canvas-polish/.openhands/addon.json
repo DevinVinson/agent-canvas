@@ -1,0 +1,17 @@
+{
+  "name": "canvas-polish",
+  "title": "Canvas Polish",
+  "frontend": {
+    "route": false
+  },
+  "sidebar": {
+    "visible": false
+  },
+  "styling": {
+    "appCss": ["src/agent-canvas.css"]
+  },
+  "compatibility": {
+    "addon_api_version": 1,
+    "min_gui_version": "1.0.0"
+  }
+}

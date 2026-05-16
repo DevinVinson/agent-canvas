@@ -1,0 +1,11 @@
+[data-agent-server-ui][data-agent-canvas-addons~="canvas-polish"]
+  > [data-theme] {
+  --oh-color-primary: #7dd3fc;
+  --oh-color-logo: #7dd3fc;
+  --oh-accent: #7dd3fc;
+  --oh-focus: #7dd3fc;
+}
+
+[data-agent-server-ui][data-agent-canvas-addons~="canvas-polish"] aside {
+  border-color: rgba(125, 211, 252, 0.22);
+}

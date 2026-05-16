@@ -1,0 +1,38 @@
+.agent-status-addon {
+  min-height: 100%;
+  padding: 2rem;
+  color: var(--oh-foreground);
+  background: var(--oh-color-base);
+}
+
+.agent-status-addon__panel {
+  max-width: 36rem;
+  border: 1px solid var(--oh-border);
+  border-radius: var(--oh-radius);
+  padding: 1.5rem;
+  background: var(--oh-surface);
+}
+
+.agent-status-addon__eyebrow {
+  margin: 0 0 0.5rem;
+  color: var(--oh-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.agent-status-addon h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.agent-status-addon p {
+  color: var(--oh-text-secondary);
+}
+
+.agent-status-addon button {
+  border: 1px solid var(--oh-border);
+  border-radius: var(--oh-radius);
+  padding: 0.5rem 0.75rem;
+  color: var(--oh-accent-foreground);
+  background: var(--oh-accent);
+}

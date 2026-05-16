@@ -1,9 +1,11 @@
 // @vitest-environment node
 import viteConfig from "../vite.config";
 import { afterEach, describe, expect, it } from "vitest";
+import path from "node:path";
 
 afterEach(() => {
   delete process.env.BUILD_LIB;
+  delete process.env.AGENT_CANVAS_ADDONS_DIR;
 });
 
 describe("vite optimizeDeps", () => {
@@ -33,6 +35,17 @@ describe("vite path resolution", () => {
       ]),
     );
   });
+
+  it("allows an external add-ons directory when configured", async () => {
+    const addonsDir = path.resolve(process.cwd(), "../agent-canvas-addons");
+    process.env.AGENT_CANVAS_ADDONS_DIR = addonsDir;
+
+    const config = await viteConfig({ mode: "development", command: "serve" });
+
+    expect(config.server?.fs?.allow).toEqual(
+      expect.arrayContaining([addonsDir]),
+    );
+  });
 });
 
 describe("vite app build", () => {
@@ -54,7 +67,9 @@ describe("vite app build", () => {
       };
     };
 
-    expect(appBuild.build?.rolldownOptions?.output?.codeSplitting?.groups).toEqual(
+    expect(
+      appBuild.build?.rolldownOptions?.output?.codeSplitting?.groups,
+    ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           name: "vendor",

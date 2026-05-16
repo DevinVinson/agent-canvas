@@ -31,11 +31,11 @@ cloud-backed OpenHands sessions.
 
 ### Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Ingress port | `8000` |
-| `OH_AUTOMATION_GIT_REF` | Git ref for automation backend | `main` |
-| `OH_AGENT_SERVER_GIT_REF` | Git ref for agent-server | `main` |
+| Variable                  | Description                    | Default |
+| ------------------------- | ------------------------------ | ------- |
+| `PORT`                    | Ingress port                   | `8000`  |
+| `OH_AUTOMATION_GIT_REF`   | Git ref for automation backend | `main`  |
+| `OH_AGENT_SERVER_GIT_REF` | Git ref for agent-server       | `main`  |
 
 ### Alternative: Minimal Mode (without Automation)
 
@@ -103,6 +103,91 @@ If you want to run the frontend without a live backend, use:
 npm run dev:mock
 ```
 
+## Local add-ons
+
+Agent Canvas supports trusted, local, frontend-only add-ons. The v1 contract is
+intentionally small: add-ons can register one routed React page under
+`/addons/:addonId/*`, add a sidebar entry for that route, or contribute scoped
+app CSS. They cannot register agent-server routes, install backend modules,
+inject arbitrary top-level routes, or run route-less JavaScript.
+
+During development, place an add-on under `addons/<addon-id>/` with a manifest
+at `.openhands/addon.json`:
+
+```json
+{
+  "name": "agent-status",
+  "title": "Agent Status",
+  "frontend": {
+    "entry": "src/index.tsx"
+  },
+  "sidebar": {
+    "order": 350
+  },
+  "compatibility": {
+    "addon_api_version": 1,
+    "min_gui_version": "1.0.0"
+  }
+}
+```
+
+The entry module exports a default `register(api)` function:
+
+```tsx
+import type { AddonApi, AddonRegistration } from "#/addons";
+
+export default function register(_api: AddonApi): AddonRegistration {
+  return {
+    Component: MyAddonPage,
+  };
+}
+```
+
+Run `npm run make-addons` after adding, removing, or editing add-on manifests.
+The normal dev, test, typecheck, and build scripts run it automatically. Source
+edits inside an already-discovered add-on can hot reload in Vite; folder,
+manifest, route, icon, and CSS-list changes require regenerating the registry
+and restarting the dev server.
+
+For local experiments outside the repository, set `AGENT_CANVAS_ADDONS_DIR` to
+an absolute path such as `~/.openhands/agent-canvas/addons`. In Vite dev mode
+that path is added to the filesystem allow-list so discovered add-on source can
+be imported by the generated registry.
+
+Style-only add-ons can customize the Agent Canvas shell without adding a route
+or sidebar entry:
+
+```json
+{
+  "name": "canvas-polish",
+  "title": "Canvas Polish",
+  "frontend": {
+    "route": false
+  },
+  "sidebar": {
+    "visible": false
+  },
+  "styling": {
+    "appCss": ["src/agent-canvas.css"]
+  },
+  "compatibility": {
+    "addon_api_version": 1
+  }
+}
+```
+
+`styling.appCss` files are imported at build time and apply globally, so scope
+selectors through the app root marker:
+
+```css
+[data-agent-server-ui][data-agent-canvas-addons~="canvas-polish"]
+  > [data-theme] {
+  --oh-accent: #7dd3fc;
+}
+```
+
+See `examples/addons/` for a routed add-on and a style-only add-on.
+
 ## Build and test
 
 ```sh
@@ -162,3 +247,4 @@ You can create a `.env` file in the project directory with these variables based
 | `VITE_FRONTEND_PORT`        | Port to run the frontend application                                               | `3001`                 |
 | `VITE_INSECURE_SKIP_VERIFY` | Skip TLS certificate verification for proxied backend requests                     | `false`                |
 | `VITE_GITHUB_TOKEN`         | GitHub token for repository access (used in some tests)                            | -                      |
+| `AGENT_CANVAS_ADDONS_DIR`   | Optional local add-on directory scanned by `npm run make-addons`                   | `addons`               |

@@ -1,0 +1,14 @@
+{
+  "name": "agent-status",
+  "title": "Agent Status",
+  "frontend": {
+    "entry": "src/index.tsx"
+  },
+  "sidebar": {
+    "order": 350
+  },
+  "compatibility": {
+    "addon_api_version": 1,
+    "min_gui_version": "1.0.0"
+  }
+}

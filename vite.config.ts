@@ -1,7 +1,9 @@
 /// <reference types="vitest" />
 /// <reference types="vite-plugin-svgr/client" />
+import os from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, searchForWorkspaceRoot } from "vite";
 import svgr from "vite-plugin-svgr";
 import { reactRouter } from "@react-router/dev/vite";
 import { configDefaults } from "vitest/config";
@@ -13,6 +15,7 @@ import {
 } from "./src/styles/agent-server-ui-style-scope";
 
 const LIB_ENTRY = fileURLToPath(new URL("./src/index.ts", import.meta.url));
+const ADDONS_DIR_ENV = "AGENT_CANVAS_ADDONS_DIR";
 const LIB_EXTERNALS = [
   "react",
   "react-dom",
@@ -40,6 +43,19 @@ const appBuildConfig = {
   },
 };
 
+function resolveConfiguredAddonsDir(root: string): string | undefined {
+  const configuredPath = process.env[ADDONS_DIR_ENV];
+  if (!configuredPath) return undefined;
+
+  if (configuredPath.startsWith("~/")) {
+    return path.resolve(os.homedir(), configuredPath.slice(2));
+  }
+
+  return path.isAbsolute(configuredPath)
+    ? configuredPath
+    : path.resolve(root, configuredPath);
+}
+
 export default defineConfig(({ mode }) => {
   const {
     VITE_BACKEND_HOST = "127.0.0.1:8000",
@@ -57,6 +73,7 @@ export default defineConfig(({ mode }) => {
   const API_URL = `${PROTOCOL}://${VITE_BACKEND_HOST}/`;
   const WS_URL = `${WS_PROTOCOL}://${VITE_BACKEND_HOST}/`;
   const FE_PORT = Number.parseInt(VITE_FRONTEND_PORT, 10);
+  const configuredAddonsDir = resolveConfiguredAddonsDir(process.cwd());
 
   return {
     plugins: [
@@ -261,6 +278,16 @@ export default defineConfig(({ mode }) => {
       strictPort: true, // Fail if port is busy (dynamic allocation handles fallback)
       host: true,
       allowedHosts: true,
+      ...(configuredAddonsDir
+        ? {
+            fs: {
+              allow: [
+                searchForWorkspaceRoot(process.cwd()),
+                configuredAddonsDir,
+              ],
+            },
+          }
+        : {}),
       proxy: {
         "/api": {
           target: API_URL,

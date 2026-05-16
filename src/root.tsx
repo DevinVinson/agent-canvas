@@ -15,6 +15,7 @@ import { TelemetryConsentBanner } from "#/components/features/analytics/telemetr
 import { LoadingSpinner } from "#/components/shared/loading-spinner";
 import { useConfig } from "#/hooks/query/use-config";
 import { AgentServerUIRoot } from "#/components/providers";
+import { getAddonAppStyleAttribute } from "#/addons/registry";
 import {
   applyColorTheme,
   readPersistedColorTheme,
@@ -36,6 +37,8 @@ const ManageBackendsModal = React.lazy(() =>
   })),
 );
 
+const appStyleAddonAttribute = getAddonAppStyleAttribute();
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -46,7 +49,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body data-agent-server-ui="" style={{ margin: 0 }}>
-        <AgentServerUIRoot contentClassName="min-h-screen">
+        <AgentServerUIRoot
+          contentClassName="min-h-screen"
+          data-agent-canvas-addons={appStyleAddonAttribute}
+        >
           <ColorThemeApplier />
           {children}
           <Toaster />
