@@ -144,15 +144,21 @@ export default function register(_api: AddonApi): AddonRegistration {
 ```
 
 Run `npm run make-addons` after adding, removing, or editing add-on manifests.
-The normal dev, test, typecheck, and build scripts run it automatically. Source
-edits inside an already-discovered add-on can hot reload in Vite; folder,
-manifest, route, icon, and CSS-list changes require regenerating the registry
-and restarting the dev server.
+The normal dev, test, typecheck, and build scripts run it automatically.
+Static launchers such as `npm run dev`, `npm run dev:docker`, and the published
+`agent-canvas` binary see add-ons only when the frontend build is created, so
+source edits require rebuilding or restarting the stack. Vite launchers such as
+`npm run dev:frontend`, `npm run dev:mock`, `npm run dev:docker:dynamic`, and
+`npm run dev:dangerously-dockerless:dynamic` can hot reload source edits inside
+an already-discovered add-on. Folder, manifest, route, icon, and CSS-list
+changes still require regenerating the registry and restarting the dev server.
 
 For local experiments outside the repository, set `AGENT_CANVAS_ADDONS_DIR` to
 an absolute path such as `~/.openhands/agent-canvas/addons`. In Vite dev mode
 that path is added to the filesystem allow-list so discovered add-on source can
-be imported by the generated registry.
+be imported by the generated registry. In the default static `dev:docker`
+workflow the host build process can read that directory, but it is not watched
+for HMR.
 
 Style-only add-ons can customize the Agent Canvas shell without adding a route
 or sidebar entry:
