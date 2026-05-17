@@ -9,8 +9,7 @@ interface MarketplaceSearchProps {
 }
 
 /**
- * Single search input that filters both the Installed and Marketplace
- * sections on the MCP page.
+ * Search input for filtering installed MCP servers on the MCP page.
  */
 export function MarketplaceSearch({ value, onChange }: MarketplaceSearchProps) {
   const { t } = useTranslation("openhands");

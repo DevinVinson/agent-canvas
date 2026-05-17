@@ -7,7 +7,6 @@ import { BrandButton } from "#/components/features/settings/brand-button";
 import { ConfirmationModal } from "#/components/shared/modals/confirmation-modal";
 import { useSettings } from "#/hooks/query/use-settings";
 import { useDeleteMcpServer } from "#/hooks/mutation/use-delete-mcp-server";
-import { useActiveBackend } from "#/contexts/active-backend-context";
 import { parseMcpConfig } from "#/utils/mcp-config";
 import {
   displayErrorToast,
@@ -16,17 +15,14 @@ import {
 import { retrieveAxiosErrorMessage } from "#/utils/retrieve-axios-error-message";
 import {
   findCatalogEntryForServer,
-  findInstalledMatch,
   installedServerMatchesQuery,
 } from "#/utils/mcp-marketplace-utils";
-import { MCP_MARKETPLACE, MarketplaceEntry } from "#/constants/mcp-marketplace";
+import { MCP_MARKETPLACE } from "#/constants/mcp-marketplace";
 import { MCPConfig } from "#/types/settings";
 import { MCPServerConfig } from "#/types/mcp-server";
 import {
   InstalledServersSection,
   MarketplaceSearch,
-  MarketplaceSection,
-  InstallServerModal,
   CustomServerEditor,
 } from "#/components/features/mcp-page";
 
@@ -61,11 +57,7 @@ export default function MCPPage() {
   const { data: settings, isLoading } = useSettings();
   const { mutate: deleteMcpServer, isPending: isDeleting } =
     useDeleteMcpServer();
-  const activeBackend = useActiveBackend();
-  const backendKind = activeBackend.backend.kind;
 
-  const [installEntry, setInstallEntry] =
-    React.useState<MarketplaceEntry | null>(null);
   const [editingServer, setEditingServer] =
     React.useState<MCPServerConfig | null>(null);
   const [serverToDelete, setServerToDelete] =
@@ -74,9 +66,6 @@ export default function MCPPage() {
 
   const mcpConfig = parseMcpConfig(settings?.agent_settings?.mcp_config);
   const allServers = flattenMcpConfig(mcpConfig);
-
-  const isInstalled = (entry: MarketplaceEntry) =>
-    !!findInstalledMatch(entry.template, allServers);
 
   // Filter installed servers by the search query. We pair each server
   // with its catalog entry (if any) so the search can match friendly
@@ -89,10 +78,6 @@ export default function MCPPage() {
       searchQuery,
     ),
   );
-
-  const handleMarketplaceClick = (entry: MarketplaceEntry) => {
-    setInstallEntry(entry);
-  };
 
   const handleEdit = (server: MCPServerConfig) => {
     setEditingServer(server);
@@ -160,7 +145,9 @@ export default function MCPPage() {
             </div>
           </div>
 
-          <MarketplaceSearch value={searchQuery} onChange={setSearchQuery} />
+          {(allServers.length > 0 || searchQuery.trim().length > 0) && (
+            <MarketplaceSearch value={searchQuery} onChange={setSearchQuery} />
+          )}
 
           <section className="flex flex-col gap-3">
             <h2 className="text-base font-semibold text-foreground">
@@ -174,21 +161,7 @@ export default function MCPPage() {
               onDelete={handleDeleteClick}
             />
           </section>
-
-          <MarketplaceSection
-            isInstalled={isInstalled}
-            backendKind={backendKind}
-            onSelect={handleMarketplaceClick}
-            query={searchQuery}
-          />
         </div>
-
-        {installEntry && (
-          <InstallServerModal
-            entry={installEntry}
-            onClose={() => setInstallEntry(null)}
-          />
-        )}
 
         {/* Custom (or non-marketplace) server editor — falls back to the
             legacy MCPServerForm for full control. The empty-id sentinel
