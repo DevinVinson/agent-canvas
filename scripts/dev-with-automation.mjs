@@ -386,6 +386,56 @@ function commandExists(cmd) {
   return result.status === 0;
 }
 
+function checkPythonVersion() {
+  // The OpenHands SDK requires Python >= 3.12. When `uv venv` is invoked
+  // inside an automation's setup.sh it picks the first `python3` on PATH.
+  // If that is an older system Python (e.g. macOS ships 3.9), the venv is
+  // created with that version and `uv pip install openhands-sdk` fails with
+  // a cryptic resolver error. Catch this early with a clear message.
+  const MIN_MAJOR = 3;
+  const MIN_MINOR = 12;
+
+  const result = spawnSync("python3", ["--version"], { stdio: "pipe" });
+  if (result.status !== 0) {
+    logService(
+      "prereqs",
+      "python3 not found on PATH — automation setup.sh may fail",
+      c.yellow,
+    );
+    return;
+  }
+
+  const versionStr = result.stdout.toString().trim(); // "Python 3.x.y"
+  const match = versionStr.match(/Python (\d+)\.(\d+)/);
+  if (!match) {
+    logService(
+      "prereqs",
+      `Could not parse Python version from: ${versionStr}`,
+      c.yellow,
+    );
+    return;
+  }
+
+  const major = parseInt(match[1], 10);
+  const minor = parseInt(match[2], 10);
+
+  if (major < MIN_MAJOR || (major === MIN_MAJOR && minor < MIN_MINOR)) {
+    logService(
+      "prereqs",
+      [
+        `${c.red}${c.bold}Python ${MIN_MAJOR}.${MIN_MINOR}+ is required but python3 resolves to ${versionStr}${c.reset}`,
+        `${c.yellow}  Automations will fail because openhands-sdk needs Python >= ${MIN_MAJOR}.${MIN_MINOR}.${c.reset}`,
+        `${c.yellow}  The 'uv venv' command in setup.sh picks the first python3 on PATH.${c.reset}`,
+        `${c.yellow}  Fix: install Python ${MIN_MAJOR}.${MIN_MINOR}+ and ensure it appears first on PATH.${c.reset}`,
+        `${c.yellow}  On macOS: brew install python@${MIN_MAJOR}.${MIN_MINOR} && brew link python@${MIN_MAJOR}.${MIN_MINOR}${c.reset}`,
+      ].join("\n"),
+      c.reset,
+    );
+  } else {
+    logSuccess(`python3 version ${versionStr} (>= ${MIN_MAJOR}.${MIN_MINOR} ✓)`);
+  }
+}
+
 function checkPrerequisites({ checkFrontendDependencies = true } = {}) {
   logStep("1/2", "Checking prerequisites...");
 
@@ -400,6 +450,9 @@ function checkPrerequisites({ checkFrontendDependencies = true } = {}) {
     process.exit(1);
   }
   logSuccess("npm found");
+
+  // Check Python version — automations need >= 3.12 for the SDK
+  checkPythonVersion();
 
   if (checkFrontendDependencies) {
     try {

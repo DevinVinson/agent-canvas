@@ -12222,6 +12222,23 @@
     "uk": "Створено",
     "ca": "Creat"
   },
+  "AUTOMATIONS$DETAIL$ERROR_DETAIL_LABEL": {
+    "en": "Error details",
+    "ja": "エラー詳細",
+    "zh-CN": "错误详情",
+    "zh-TW": "錯誤詳情",
+    "ko-KR": "오류 세부정보",
+    "no": "Feildetaljer",
+    "it": "Dettagli errore",
+    "pt": "Detalhes do erro",
+    "es": "Detalles del error",
+    "ar": "تفاصيل الخطأ",
+    "fr": "Détails de l'erreur",
+    "tr": "Hata ayrıntıları",
+    "de": "Fehlerdetails",
+    "uk": "Деталі помилки",
+    "ca": "Detalls de l'error"
+  },
   "AUTOMATIONS$DETAIL$FAILED": {
     "en": "Failed",
     "ja": "失敗",

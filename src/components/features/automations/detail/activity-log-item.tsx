@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { I18nKey } from "#/i18n/declaration";
 import TerminalIcon from "#/icons/terminal.svg?react";
 import type { AutomationRun } from "#/types/automation";
+import { AutomationRunStatus } from "#/types/automation";
 import { RunStatusBadge } from "./run-status-badge";
 import { RunLogsModal } from "./run-logs-modal";
 
@@ -32,6 +33,10 @@ export function ActivityLogItem({ run }: ActivityLogItemProps) {
   const hasConversation = !!run.conversation_id;
   const hasBashCommand = !!run.bash_command_id;
   const [logsOpen, setLogsOpen] = useState(false);
+  const [errorExpanded, setErrorExpanded] = useState(false);
+
+  const isFailed = run.status === AutomationRunStatus.FAILED;
+  const hasErrorDetail = isFailed && !!run.error_detail;
 
   const formattedTimestamp = formatRunTimestamp(run.started_at, i18n.language);
 
@@ -91,6 +96,36 @@ export function ActivityLogItem({ run }: ActivityLogItemProps) {
       ) : (
         <div className="flex items-center justify-between px-5 py-3 cursor-default">
           {content}
+        </div>
+      )}
+
+      {hasErrorDetail && (
+        <div className="border-t border-[var(--oh-border)]/50 bg-[var(--oh-danger)]/5 px-5 py-2">
+          <button
+            type="button"
+            onClick={() => setErrorExpanded((prev) => !prev)}
+            className="flex w-full items-center gap-1.5 text-left text-xs text-danger hover:text-danger/80"
+          >
+            <span
+              className="inline-block transition-transform"
+              style={{
+                transform: errorExpanded ? "rotate(90deg)" : "rotate(0deg)",
+              }}
+            >
+              ▸
+            </span>
+            <span className="font-medium">
+              {t(I18nKey.AUTOMATIONS$DETAIL$ERROR_DETAIL_LABEL)}
+            </span>
+          </button>
+          {errorExpanded && (
+            <pre
+              data-testid="run-error-detail"
+              className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded border border-[var(--oh-danger)]/20 bg-black/30 p-3 font-mono text-xs text-danger"
+            >
+              {run.error_detail}
+            </pre>
+          )}
         </div>
       )}
 
