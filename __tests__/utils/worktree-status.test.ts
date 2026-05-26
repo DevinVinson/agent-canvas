@@ -40,6 +40,32 @@ describe("worktree-status", () => {
     expect(status.displayMode).toBe("worktree-active");
   });
 
+  it("detects active worktree after a handoff is confirmed", () => {
+    const status = resolveWorktreeStatus({
+      workspacePath: "/workspace/project/puter",
+      workingDir: "/workspace/project/puter",
+      branch: "main",
+      worktreeEnabled: false,
+      isGitRepo: true,
+      handoffActive: true,
+    });
+
+    expect(status.displayMode).toBe("worktree-active");
+  });
+
+  it("detects active worktree from a linked git worktree checkout", () => {
+    const status = resolveWorktreeStatus({
+      workspacePath: "/workspace/project/puter",
+      workingDir: "/workspace/worktrees/puter-main",
+      branch: null,
+      worktreeEnabled: false,
+      isGitRepo: true,
+      isLinkedWorktree: true,
+    });
+
+    expect(status.displayMode).toBe("worktree-active");
+  });
+
   it("detects direct workspace mode when worktree is disabled", () => {
     const status = resolveWorktreeStatus({
       workspacePath: "/workspace/project/agent-canvas",

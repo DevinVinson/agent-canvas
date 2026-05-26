@@ -3,6 +3,7 @@ import { getStoredConversationMetadata } from "#/api/conversation-metadata-store
 import { useActiveConversation } from "#/hooks/query/use-active-conversation";
 import { useLocalGitInfo } from "#/hooks/query/use-local-git-info";
 import { useRuntimeGitProbe } from "#/hooks/query/use-runtime-git-probe";
+import { useWorktreeHandoffActive } from "#/stores/worktree-handoff-store";
 import { useWorktreePreferenceEnabled } from "#/stores/worktree-preference-store";
 import {
   resolveWorktreeStatus,
@@ -24,6 +25,7 @@ export const useWorktreeStatus = (
   const { data: localGitInfo } = useLocalGitInfo();
   const { data: runtimeGitProbe } = useRuntimeGitProbe();
   const worktreePreferenceEnabled = useWorktreePreferenceEnabled();
+  const worktreeHandoffActive = useWorktreeHandoffActive(conversation?.id);
 
   return useMemo(() => {
     if (options.previewMode) {
@@ -41,10 +43,10 @@ export const useWorktreeStatus = (
       ? getStoredConversationMetadata(conversation.id)
       : null;
     const workspacePath = storedMetadata?.selected_workspace ?? null;
+    const conversationWorkingDir =
+      conversation?.workspace?.working_dir?.trim() || null;
     const workingDir =
-      runtimeGitProbe?.gitTopLevel ??
-      conversation?.workspace?.working_dir ??
-      null;
+      conversationWorkingDir ?? runtimeGitProbe?.gitTopLevel ?? null;
     const branch =
       runtimeGitProbe?.branch ??
       conversation?.selected_branch ??
@@ -54,7 +56,8 @@ export const useWorktreeStatus = (
       !!branch ||
       !!localGitInfo?.branch ||
       !!localGitInfo?.repository ||
-      !!conversation?.selected_repository;
+      !!conversation?.selected_repository ||
+      runtimeGitProbe?.isLinkedWorktree === true;
 
     return resolveWorktreeStatus({
       workspacePath,
@@ -63,6 +66,8 @@ export const useWorktreeStatus = (
       worktreeEnabled:
         storedMetadata?.worktree_enabled ?? worktreePreferenceEnabled,
       isGitRepo,
+      handoffActive: worktreeHandoffActive,
+      isLinkedWorktree: runtimeGitProbe?.isLinkedWorktree ?? false,
     });
   }, [
     conversation?.id,
@@ -77,6 +82,8 @@ export const useWorktreeStatus = (
     options.previewWorkspacePath,
     runtimeGitProbe?.branch,
     runtimeGitProbe?.gitTopLevel,
+    runtimeGitProbe?.isLinkedWorktree,
+    worktreeHandoffActive,
     worktreePreferenceEnabled,
   ]);
 };

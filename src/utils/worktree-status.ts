@@ -53,6 +53,10 @@ interface ResolveWorktreeStatusInput {
   branch: string | null;
   worktreeEnabled: boolean;
   isGitRepo: boolean;
+  /** User confirmed a hand off to an isolated worktree for this conversation. */
+  handoffActive?: boolean;
+  /** Runtime probe detected a linked git worktree checkout. */
+  isLinkedWorktree?: boolean;
 }
 
 export const resolveWorktreeStatus = ({
@@ -61,10 +65,16 @@ export const resolveWorktreeStatus = ({
   branch,
   worktreeEnabled,
   isGitRepo,
+  handoffActive = false,
+  isLinkedWorktree = false,
 }: ResolveWorktreeStatusInput): WorktreeStatus => {
   const onWorktreeBranch = isOpenHandsWorktreeBranch(branch);
   const runtimeDiffersFromWorkspace = pathsDiffer(workspacePath, workingDir);
-  const worktreeActive = onWorktreeBranch || runtimeDiffersFromWorkspace;
+  const worktreeActive =
+    onWorktreeBranch ||
+    runtimeDiffersFromWorkspace ||
+    isLinkedWorktree ||
+    handoffActive;
 
   let displayMode: WorktreeDisplayMode;
   if (!isGitRepo) {

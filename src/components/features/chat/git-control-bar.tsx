@@ -254,6 +254,7 @@ export function GitControlBar({ onSuggestionsClick }: GitControlBarProps) {
         {showWorktreeControl ? (
           <GitControlBarWorktreeButton
             mode="conversation"
+            conversationId={conversation?.id}
             status={worktreeStatus}
             branch={selectedBranch}
             repository={selectedRepository}

@@ -9,6 +9,7 @@ export interface StyledTooltipProps {
   placement?: TooltipProps["placement"];
   showArrow?: boolean;
   closeDelay?: number;
+  delay?: number;
   offset?: number;
   shouldFlip?: boolean;
 }
@@ -27,6 +28,7 @@ export function StyledTooltip({
   placement = "right",
   showArrow = false,
   closeDelay = 100,
+  delay,
   shouldFlip,
   offset = 7,
 }: StyledTooltipProps) {
@@ -36,6 +38,7 @@ export function StyledTooltip({
     <Tooltip
       content={content}
       closeDelay={closeDelay}
+      delay={delay}
       placement={placement}
       offset={offset}
       shouldFlip={shouldFlip}

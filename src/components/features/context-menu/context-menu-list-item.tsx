@@ -1,24 +1,36 @@
+import { forwardRef } from "react";
 import { cn } from "#/utils/utils";
 import { dropdownMenuRowForegroundClassName } from "#/utils/dropdown-classes";
 
-interface ContextMenuListItemProps {
+interface ContextMenuListItemProps extends Omit<
+  React.ButtonHTMLAttributes<HTMLButtonElement>,
+  "disabled"
+> {
   testId?: string;
-  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   isDisabled?: boolean;
-  className?: string;
 }
 
-export function ContextMenuListItem({
-  children,
-  testId,
-  onClick,
-  isDisabled,
-  className,
-}: React.PropsWithChildren<ContextMenuListItemProps>) {
+export const ContextMenuListItem = forwardRef<
+  HTMLButtonElement,
+  React.PropsWithChildren<ContextMenuListItemProps>
+>(function ContextMenuListItem(
+  {
+    children,
+    testId,
+    onClick,
+    isDisabled,
+    className,
+    type = "button",
+    ...rest
+  },
+  ref,
+) {
   return (
     <button
+      ref={ref}
+      {...rest}
       data-testid={testId || "context-menu-list-item"}
-      type="button"
+      type={type}
       onClick={onClick}
       disabled={isDisabled}
       className={cn(
@@ -30,4 +42,4 @@ export function ContextMenuListItem({
       {children}
     </button>
   );
-}
+});

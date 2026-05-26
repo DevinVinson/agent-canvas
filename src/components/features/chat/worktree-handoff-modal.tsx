@@ -18,8 +18,6 @@ import {
   buildHandoffToLocalPrompt,
   buildHandoffToWorktreePrompt,
 } from "#/constants/worktree-keys";
-import { cn } from "#/utils/utils";
-import { ComboboxCaretInline } from "#/ui/combobox-caret";
 
 export type WorktreeHandoffVariant = "to-worktree" | "to-local";
 
@@ -66,38 +64,31 @@ export function WorktreeHandoffModal({
 
   const [localBranch, setLocalBranch] = useState<Branch | null>(null);
   const [targetBranch, setTargetBranch] = useState<Branch | null>(null);
-  const [selectedWorkspace, setSelectedWorkspace] =
-    useState<LocalWorkspace | null>(null);
-  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
 
-  const workspaceOptions = useMemo(() => {
+  const targetWorkspace = useMemo((): LocalWorkspace | null => {
     const registered = workspacesResponse?.workspaces ?? [];
-    if (registered.length > 0) return registered;
+    if (registered.length > 0) return registered[0];
 
     if (workspacePath) {
       const name =
         workspacePath.replace(/\/+$/, "").split("/").pop() || workspacePath;
-      return [
-        {
-          id: workspacePath,
-          name,
-          path: workspacePath,
-        },
-      ];
+      return {
+        id: workspacePath,
+        name,
+        path: workspacePath,
+      };
     }
 
     if (repository) {
       const name = repository.split("/").pop() || repository;
-      return [
-        {
-          id: `repo:${repository}`,
-          name,
-          path: repository,
-        },
-      ];
+      return {
+        id: `repo:${repository}`,
+        name,
+        path: repository,
+      };
     }
 
-    return [];
+    return null;
   }, [repository, workspacePath, workspacesResponse?.workspaces]);
 
   useEffect(() => {
@@ -106,16 +97,7 @@ export function WorktreeHandoffModal({
     const keepLocalBranch = defaultLocalBranch ?? branch;
     setLocalBranch(toBranch(keepLocalBranch));
     setTargetBranch(toBranch(branch));
-    setSelectedWorkspace(workspaceOptions[0] ?? null);
-    setWorkspaceMenuOpen(false);
-  }, [
-    branch,
-    defaultLocalBranch,
-    isOpen,
-    workspaceOptions.length,
-    workspaceOptions[0]?.id,
-    workspaceOptions[0]?.path,
-  ]);
+  }, [branch, defaultLocalBranch, isOpen]);
 
   if (!isOpen) return null;
 
@@ -123,7 +105,7 @@ export function WorktreeHandoffModal({
   const canConfirm =
     variant === "to-worktree"
       ? !!localBranch?.name
-      : !!targetBranch?.name && !!selectedWorkspace;
+      : !!targetBranch?.name && !!targetWorkspace;
 
   const handleConfirm = () => {
     if (!canConfirm) return;
@@ -133,7 +115,7 @@ export function WorktreeHandoffModal({
         ? buildHandoffToWorktreePrompt(branch, localBranch!.name)
         : buildHandoffToLocalPrompt(
             targetBranch!.name,
-            workspaceLabel(selectedWorkspace!),
+            workspaceLabel(targetWorkspace!),
           );
 
     onConfirm(prompt);
@@ -166,10 +148,23 @@ export function WorktreeHandoffModal({
         onBranchSelect={setTargetBranch}
         defaultBranch={branch}
         placeholder={t(I18nKey.COMMON$NO_BRANCH)}
-        className="inline-flex min-w-[120px] max-w-[220px] align-middle"
+        className="w-full"
       />
     ) : (
       <WorktreeBranchPill branch={targetBranch?.name ?? branch} />
+    );
+
+  const descriptionContent =
+    variant === "to-local" && canUseBranchDropdown ? (
+      <>
+        <span>{descriptionLead}</span>
+        {descriptionBranchNode}
+        <span>{descriptionTrail}</span>
+      </>
+    ) : (
+      <span>
+        {descriptionLead} {descriptionBranchNode} {descriptionTrail}
+      </span>
     );
 
   return (
@@ -194,12 +189,12 @@ export function WorktreeHandoffModal({
           />
         </div>
 
-        <div className="w-full text-sm leading-6 text-[var(--oh-muted)]">
-          {descriptionLead} {descriptionBranchNode} {descriptionTrail}
+        <div className="flex w-full flex-col gap-2 text-sm leading-6 text-[var(--oh-muted)]">
+          {descriptionContent}
         </div>
 
         {variant === "to-worktree" ? (
-          <div className="flex w-full flex-wrap items-center gap-2 text-sm leading-6 text-[var(--oh-muted)]">
+          <div className="flex w-full flex-col gap-2 text-sm leading-6 text-[var(--oh-muted)]">
             <span>{t(I18nKey.WORKTREE$LOCAL_WORKSPACE_SWITCH_LABEL)}</span>
             {canUseBranchDropdown ? (
               <GitBranchDropdown
@@ -209,62 +204,13 @@ export function WorktreeHandoffModal({
                 onBranchSelect={setLocalBranch}
                 defaultBranch={defaultLocalBranch ?? branch}
                 placeholder={t(I18nKey.COMMON$NO_BRANCH)}
-                className="min-w-[120px] max-w-[220px]"
+                className="w-full"
               />
             ) : (
               <WorktreeBranchPill branch={localBranch?.name ?? branch} />
             )}
           </div>
-        ) : (
-          <div className="flex w-full flex-wrap items-center gap-2 text-sm leading-6 text-[var(--oh-muted)]">
-            <span>{t(I18nKey.WORKTREE$LOCAL_WORKSPACE_TARGET_LABEL)}</span>
-            <div className="relative">
-              <button
-                type="button"
-                data-testid="worktree-handoff-workspace-select"
-                aria-haspopup="listbox"
-                aria-expanded={workspaceMenuOpen}
-                disabled={workspaceOptions.length === 0}
-                onClick={() => setWorkspaceMenuOpen((open) => !open)}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full border border-[var(--oh-border)] bg-[var(--oh-surface)] px-2.5 py-1 text-sm leading-5 text-[var(--oh-foreground)]",
-                  workspaceOptions.length === 0 &&
-                    "opacity-50 cursor-not-allowed",
-                )}
-              >
-                <span className="truncate max-w-[180px]">
-                  {selectedWorkspace
-                    ? workspaceLabel(selectedWorkspace)
-                    : t(I18nKey.HOME$NO_WORKSPACE_OPTION)}
-                </span>
-                <ComboboxCaretInline isOpen={workspaceMenuOpen} />
-              </button>
-              {workspaceMenuOpen && workspaceOptions.length > 0 ? (
-                <ul
-                  className="absolute left-0 top-full z-50 mt-1 min-w-[180px] rounded-md border border-[var(--oh-border-subtle)] bg-tertiary py-1 shadow-lg"
-                  role="listbox"
-                >
-                  {workspaceOptions.map((workspace) => (
-                    <li key={workspace.id}>
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={selectedWorkspace?.id === workspace.id}
-                        className="w-full px-3 py-2 text-left text-sm text-[var(--oh-foreground)] hover:bg-[var(--oh-interactive-hover)]"
-                        onClick={() => {
-                          setSelectedWorkspace(workspace);
-                          setWorkspaceMenuOpen(false);
-                        }}
-                      >
-                        {workspaceLabel(workspace)}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          </div>
-        )}
+        ) : null}
 
         <BrandButton
           type="button"

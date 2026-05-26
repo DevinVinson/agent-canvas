@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import { Split } from "lucide-react";
 import { WorktreeMainDirectoryIcon } from "#/components/features/chat/worktree-main-directory-icon";
 import { ComboboxCaretInline } from "#/ui/combobox-caret";
@@ -12,6 +13,8 @@ import {
   formControlSurfaceClassName,
   formControlTransitionClassName,
 } from "#/utils/form-control-classes";
+import { RUNTIME_GIT_PROBE_QUERY_KEY } from "#/hooks/query/use-runtime-git-probe";
+import { setWorktreeHandoffActive } from "#/stores/worktree-handoff-store";
 import {
   isInWorktreeMode,
   resolveConversationBranch,
@@ -26,6 +29,7 @@ import {
 interface GitControlBarWorktreeButtonProps {
   status: WorktreeStatus;
   mode: "conversation" | "home";
+  conversationId?: string;
   branch?: string | null;
   repository?: string | null;
   gitProvider?: Provider | null;
@@ -41,6 +45,7 @@ const MENU_GAP_PX = 8;
 export function GitControlBarWorktreeButton({
   status,
   mode,
+  conversationId,
   branch,
   repository,
   gitProvider,
@@ -51,6 +56,7 @@ export function GitControlBarWorktreeButton({
   handoffDisabled,
 }: GitControlBarWorktreeButtonProps) {
   const { t } = useTranslation("openhands");
+  const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
   const [handoffModal, setHandoffModal] =
     useState<WorktreeHandoffVariant | null>(null);
@@ -119,6 +125,16 @@ export function GitControlBarWorktreeButton({
     ? Split
     : WorktreeMainDirectoryIcon;
   const isHomeMode = mode === "home";
+
+  const handleHandoffConfirm = (prompt: string) => {
+    if (conversationId && handoffModal) {
+      setWorktreeHandoffActive(conversationId, handoffModal === "to-worktree");
+      queryClient.invalidateQueries({
+        queryKey: [RUNTIME_GIT_PROBE_QUERY_KEY],
+      });
+    }
+    onHandoff(prompt);
+  };
 
   const menu =
     menuOpen && !disabled && portalStyle ? (
@@ -204,7 +220,7 @@ export function GitControlBarWorktreeButton({
         defaultLocalBranch={defaultLocalBranch}
         workspacePath={workspacePath ?? status.workspacePath}
         onClose={() => setHandoffModal(null)}
-        onConfirm={onHandoff}
+        onConfirm={handleHandoffConfirm}
         disabled={handoffDisabled}
       />
     </>

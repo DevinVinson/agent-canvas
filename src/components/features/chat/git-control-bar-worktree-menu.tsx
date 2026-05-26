@@ -1,7 +1,8 @@
-import type { CSSProperties, RefObject } from "react";
+import type { ComponentProps, CSSProperties, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeftRight, Check, Split } from "lucide-react";
 import { WorktreeMainDirectoryIcon } from "#/components/features/chat/worktree-main-directory-icon";
+import { StyledTooltip } from "#/components/shared/buttons/styled-tooltip";
 import { ContextMenu } from "#/ui/context-menu";
 import { ContextMenuListItem } from "#/components/features/context-menu/context-menu-list-item";
 import { I18nKey } from "#/i18n/declaration";
@@ -21,6 +22,39 @@ interface GitControlBarWorktreeMenuProps {
   handoffDisabled?: boolean;
   anchorRef: RefObject<HTMLElement | null>;
   portalStyle: CSSProperties;
+}
+
+type WorktreeMenuItemProps = ComponentProps<typeof ContextMenuListItem> & {
+  tooltip: string;
+};
+
+function WorktreeMenuItemWithTooltip({
+  tooltip,
+  isDisabled,
+  children,
+  ...props
+}: WorktreeMenuItemProps) {
+  const item = (
+    <ContextMenuListItem isDisabled={isDisabled} {...props}>
+      {children}
+    </ContextMenuListItem>
+  );
+
+  return (
+    <StyledTooltip
+      content={tooltip}
+      placement="right"
+      delay={0}
+      closeDelay={0}
+      tooltipClassName="z-[10001] max-w-[240px] whitespace-normal"
+    >
+      {isDisabled ? (
+        <span className="flex w-full cursor-not-allowed">{item}</span>
+      ) : (
+        item
+      )}
+    </StyledTooltip>
+  );
 }
 
 export function GitControlBarWorktreeMenu({
@@ -58,12 +92,13 @@ export function GitControlBarWorktreeMenu({
       position="none"
       spacing="none"
       style={portalStyle}
-      className="min-w-[200px]"
+      className="min-w-[200px] overflow-visible"
     >
       {showStartModeOptions ? (
         <>
-          <ContextMenuListItem
+          <WorktreeMenuItemWithTooltip
             testId="worktree-start-direct-action"
+            tooltip={t(I18nKey.WORKTREE$STATUS_DIRECT)}
             onClick={() => {
               setWorktreePreferenceEnabled(false);
               onClose();
@@ -78,9 +113,10 @@ export function GitControlBarWorktreeMenu({
                 <Check className="h-4 w-4 shrink-0" aria-hidden />
               ) : null}
             </span>
-          </ContextMenuListItem>
-          <ContextMenuListItem
+          </WorktreeMenuItemWithTooltip>
+          <WorktreeMenuItemWithTooltip
             testId="worktree-start-worktree-action"
+            tooltip={t(I18nKey.WORKTREE$STATUS_WORKTREE_PENDING)}
             onClick={() => {
               setWorktreePreferenceEnabled(true);
               onClose();
@@ -95,13 +131,14 @@ export function GitControlBarWorktreeMenu({
                 <Check className="h-4 w-4 shrink-0" aria-hidden />
               ) : null}
             </span>
-          </ContextMenuListItem>
+          </WorktreeMenuItemWithTooltip>
         </>
       ) : null}
 
       {showHandoffToWorktree ? (
-        <ContextMenuListItem
+        <WorktreeMenuItemWithTooltip
           testId="worktree-handoff-to-worktree-action"
+          tooltip={t(I18nKey.WORKTREE$ENABLE_DESCRIPTION)}
           isDisabled={handoffDisabled}
           onClick={() => {
             onOpenHandoffModal("to-worktree");
@@ -112,12 +149,13 @@ export function GitControlBarWorktreeMenu({
             <ArrowLeftRight className="h-4 w-4 shrink-0" aria-hidden />
             <span>{t(I18nKey.WORKTREE$HANDOFF_TO_WORKTREE_ACTION)}</span>
           </span>
-        </ContextMenuListItem>
+        </WorktreeMenuItemWithTooltip>
       ) : null}
 
       {showHandoffToLocal ? (
-        <ContextMenuListItem
+        <WorktreeMenuItemWithTooltip
           testId="worktree-handoff-to-local-action"
+          tooltip={t(I18nKey.WORKTREE$HANDOFF_DESCRIPTION)}
           isDisabled={handoffDisabled}
           onClick={() => {
             onOpenHandoffModal("to-local");
@@ -128,7 +166,7 @@ export function GitControlBarWorktreeMenu({
             <ArrowLeftRight className="h-4 w-4 shrink-0" aria-hidden />
             <span>{t(I18nKey.WORKTREE$HANDOFF_TO_LOCAL_ACTION)}</span>
           </span>
-        </ContextMenuListItem>
+        </WorktreeMenuItemWithTooltip>
       ) : null}
     </ContextMenu>
   );

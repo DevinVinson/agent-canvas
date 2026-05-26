@@ -62,11 +62,10 @@ describe("WorktreeHandoffModal", () => {
 
     expect(screen.getByText("WORKTREE$HANDOFF_TO_LOCAL_TITLE")).toBeInTheDocument();
     expect(screen.getByText(/WORKTREE\$HANDOFF_TO_LOCAL_TRAIL/)).toBeInTheDocument();
-    expect(screen.getByText("WORKTREE$LOCAL_WORKSPACE_TARGET_LABEL")).toBeInTheDocument();
     expect(screen.getByTestId("git-branch-dropdown-stub")).toBeInTheDocument();
-    expect(screen.getByTestId("worktree-handoff-workspace-select")).toHaveTextContent(
-      "repo",
-    );
+    expect(
+      screen.queryByTestId("worktree-handoff-workspace-select"),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("worktree-handoff-confirm")).not.toBeDisabled();
   });
 
@@ -107,6 +106,5 @@ describe("WorktreeHandoffModal", () => {
     );
 
     expect(screen.getByTestId("worktree-handoff-confirm")).toBeDisabled();
-    expect(screen.getByTestId("worktree-handoff-workspace-select")).toBeDisabled();
   });
 });

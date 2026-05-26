@@ -1,6 +1,9 @@
 export const WORKTREE_PREFERENCE_STORAGE_KEY =
   "openhands-worktree-preference-enabled";
 
+export const WORKTREE_HANDOFF_STORAGE_KEY =
+  "openhands-worktree-handoff-by-conversation";
+
 export const OPENHANDS_WORKTREE_BRANCH_PREFIX = "openhands/";
 
 export function buildHandoffToWorktreePrompt(

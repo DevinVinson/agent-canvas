@@ -1,8 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import { GitControlBarWorktreeButton } from "#/components/features/chat/git-control-bar-worktree-button";
+import { getWorktreeHandoffActive } from "#/stores/worktree-handoff-store";
 import type { WorktreeStatus } from "#/utils/worktree-status";
 
 vi.mock("react-i18next", () => ({
@@ -33,8 +35,22 @@ const baseStatus: WorktreeStatus = {
   isGitRepo: true,
 };
 
+function renderWorktreeButton(
+  props: React.ComponentProps<typeof GitControlBarWorktreeButton>,
+) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <GitControlBarWorktreeButton {...props} />
+    </QueryClientProvider>,
+  );
+}
+
 describe("GitControlBarWorktreeButton", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
       x: 100,
       y: 200,
@@ -50,14 +66,12 @@ describe("GitControlBarWorktreeButton", () => {
 
   it("opens the menu with a handoff-to-worktree action in direct mode", async () => {
     const user = userEvent.setup();
-    render(
-      <GitControlBarWorktreeButton
-        mode="conversation"
-        status={baseStatus}
-        branch="main"
-        onHandoff={vi.fn()}
-      />,
-    );
+    renderWorktreeButton({
+        mode: "conversation",
+        status: baseStatus,
+        branch: "main",
+        onHandoff: vi.fn(),
+      });
 
     await user.click(screen.getByTestId("git-control-bar-worktree-button"));
 
@@ -69,39 +83,38 @@ describe("GitControlBarWorktreeButton", () => {
 
   it("opens the handoff modal from the dropdown action", async () => {
     const user = userEvent.setup();
-    render(
-      <GitControlBarWorktreeButton
-        mode="conversation"
-        status={baseStatus}
-        branch="feature/demo"
-        repository="org/repo"
-        gitProvider="github"
-        onHandoff={vi.fn()}
-      />,
-    );
+    const onHandoff = vi.fn();
+    renderWorktreeButton({
+        mode: "conversation",
+        conversationId: "conv-1",
+        status: baseStatus,
+        branch: "feature/demo",
+        repository: "org/repo",
+        gitProvider: "github",
+        onHandoff,
+      });
 
     await user.click(screen.getByTestId("git-control-bar-worktree-button"));
     await user.click(screen.getByTestId("worktree-handoff-to-worktree-action"));
+    await user.click(screen.getByTestId("worktree-handoff-confirm"));
 
-    expect(screen.getByTestId("worktree-handoff-modal")).toBeInTheDocument();
-    expect(screen.getByTestId("worktree-handoff-confirm")).toBeInTheDocument();
+    expect(onHandoff).toHaveBeenCalled();
+    expect(getWorktreeHandoffActive("conv-1")).toBe(true);
   });
 
   it("shows handoff to branch when already in worktree mode", async () => {
     const user = userEvent.setup();
-    render(
-      <GitControlBarWorktreeButton
-        mode="conversation"
-        status={{
+    renderWorktreeButton({
+        mode: "conversation",
+        status: {
           ...baseStatus,
           displayMode: "worktree-pending",
           branch: "main",
           worktreeEnabled: true,
-        }}
-        branch="main"
-        onHandoff={vi.fn()}
-      />,
-    );
+        },
+        branch: "main",
+        onHandoff: vi.fn(),
+      });
 
     expect(screen.getByTestId("git-control-bar-worktree-button")).toHaveTextContent(
       "WORKTREE$BUTTON_WORKTREE",
@@ -119,17 +132,15 @@ describe("GitControlBarWorktreeButton", () => {
 
   it("shows start-mode options on the home launcher dropdown", async () => {
     const user = userEvent.setup();
-    render(
-      <GitControlBarWorktreeButton
-        mode="home"
-        status={{
+    renderWorktreeButton({
+        mode: "home",
+        status: {
           ...baseStatus,
           displayMode: "direct",
-        }}
-        branch="main"
-        onHandoff={vi.fn()}
-      />,
-    );
+        },
+        branch: "main",
+        onHandoff: vi.fn(),
+      });
 
     await user.click(screen.getByTestId("git-control-bar-worktree-button"));
 

@@ -9,6 +9,7 @@ import { useBashCommandRunner } from "#/hooks/use-bash-command-runner";
 export interface RuntimeGitProbe {
   branch: string | null;
   gitTopLevel: string | null;
+  isLinkedWorktree: boolean;
 }
 
 export const RUNTIME_GIT_PROBE_QUERY_KEY = "runtime-git-probe";
@@ -16,6 +17,7 @@ export const RUNTIME_GIT_PROBE_QUERY_KEY = "runtime-git-probe";
 const EMPTY_RUNTIME_GIT_PROBE: RuntimeGitProbe = {
   branch: null,
   gitTopLevel: null,
+  isLinkedWorktree: false,
 };
 
 /**
@@ -60,9 +62,10 @@ export const useRuntimeGitProbe = () => {
       const run = (command: string, cwd: string, timeout: number) =>
         runCommandRef.current(command, cwd, timeout);
 
-      const [branchResult, topLevelResult] = await Promise.all([
+      const [branchResult, topLevelResult, gitDirResult] = await Promise.all([
         run("git rev-parse --abbrev-ref HEAD 2>/dev/null", workingDir, 10),
         run("git rev-parse --show-toplevel 2>/dev/null", workingDir, 10),
+        run("git rev-parse --git-dir 2>/dev/null", workingDir, 10),
       ]);
 
       const rawBranch =
@@ -72,10 +75,15 @@ export const useRuntimeGitProbe = () => {
         topLevelResult.exit_code === 0
           ? topLevelResult.stdout.trim().replace(/\/+$/, "")
           : null;
+      const gitDir =
+        gitDirResult.exit_code === 0 ? gitDirResult.stdout.trim() : "";
+      const isLinkedWorktree = gitDir.includes("/worktrees/");
 
-      if (!branch && !gitTopLevel) return EMPTY_RUNTIME_GIT_PROBE;
+      if (!branch && !gitTopLevel && !isLinkedWorktree) {
+        return EMPTY_RUNTIME_GIT_PROBE;
+      }
 
-      return { branch, gitTopLevel };
+      return { branch, gitTopLevel, isLinkedWorktree };
     },
     enabled: queryEnabled,
     retry: false,
