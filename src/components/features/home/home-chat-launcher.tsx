@@ -24,6 +24,8 @@ import {
 } from "#/utils/custom-toast-handlers";
 import { getWorkspacesUnsupportedMessage } from "#/utils/workspaces-compatibility";
 import { useWorktreePreferenceEnabled } from "#/stores/worktree-preference-store";
+import { useWorktreeStatus } from "#/hooks/query/use-worktree-status";
+import { GitControlBarWorktreeButton } from "#/components/features/chat/git-control-bar-worktree-button";
 import { HomeHeaderTitle } from "./home-header/home-header-title";
 import { OpenLauncherButton } from "./open-launcher-button";
 import { OpenWorkspaceDialog } from "./open-workspace-dialog";
@@ -55,6 +57,10 @@ export function HomeChatLauncher() {
     ? getWorkspacesUnsupportedMessage(workspacesError, t)
     : null;
   const worktreeEnabled = useWorktreePreferenceEnabled();
+  const worktreePreviewStatus = useWorktreeStatus({
+    previewMode: true,
+    previewIsGitRepo: true,
+  });
 
   const hasSelection = isLocal
     ? !!pendingWorkspace
@@ -205,7 +211,7 @@ export function HomeChatLauncher() {
         />
       </div>
 
-      <div className="flex justify-start">
+      <div className="flex justify-start gap-2.5 items-center flex-wrap">
         {hasSelection ? (
           <HomeGitControlBarPreview
             workspace={pendingWorkspace}
@@ -215,12 +221,20 @@ export function HomeChatLauncher() {
             onRepoClick={() => setIsDialogOpen(true)}
           />
         ) : (
-          <OpenLauncherButton
-            kind={isLocal ? "local" : "cloud"}
-            onClick={() => setIsDialogOpen(true)}
-            disabled={isCreating || Boolean(workspacesUnsupportedMessage)}
-            disabledTooltip={workspacesUnsupportedMessage}
-          />
+          <>
+            <OpenLauncherButton
+              kind={isLocal ? "local" : "cloud"}
+              onClick={() => setIsDialogOpen(true)}
+              disabled={isCreating || Boolean(workspacesUnsupportedMessage)}
+              disabledTooltip={workspacesUnsupportedMessage}
+            />
+            <GitControlBarWorktreeButton
+              mode="home"
+              status={worktreePreviewStatus}
+              onHandoff={() => {}}
+              disabled={isCreating}
+            />
+          </>
         )}
       </div>
 

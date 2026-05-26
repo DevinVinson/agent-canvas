@@ -1,6 +1,7 @@
 import type { CSSProperties, RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { ArrowLeftRight, Check, GitBranch, Split } from "lucide-react";
+import { ArrowLeftRight, Check, Split } from "lucide-react";
+import { WorktreeMainDirectoryIcon } from "#/components/features/chat/worktree-main-directory-icon";
 import { ContextMenu } from "#/ui/context-menu";
 import { ContextMenuListItem } from "#/components/features/context-menu/context-menu-list-item";
 import { I18nKey } from "#/i18n/declaration";
@@ -11,7 +12,6 @@ import {
 } from "#/stores/worktree-preference-store";
 import type { WorktreeHandoffVariant } from "#/components/features/chat/worktree-handoff-modal";
 import { isInWorktreeMode, type WorktreeStatus } from "#/utils/worktree-status";
-import { cn } from "#/utils/utils";
 
 interface GitControlBarWorktreeMenuProps {
   status: WorktreeStatus;
@@ -44,7 +44,7 @@ export function GitControlBarWorktreeMenu({
 
   const showHandoffToLocal = inWorktreeMode;
 
-  const showStartModeOptions = mode === "home" && status.isGitRepo;
+  const showStartModeOptions = mode === "home";
 
   if (!showHandoffToWorktree && !showHandoffToLocal && !showStartModeOptions) {
     return null;
@@ -69,16 +69,14 @@ export function GitControlBarWorktreeMenu({
               onClose();
             }}
           >
-            <span className="flex items-center gap-2">
-              <Check
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  !worktreePreferenceEnabled ? "opacity-100" : "opacity-0",
-                )}
-                aria-hidden
-              />
-              <GitBranch className="h-4 w-4 shrink-0" aria-hidden />
-              <span>{t(I18nKey.WORKTREE$BUTTON_DIRECT)}</span>
+            <span className="flex min-w-0 w-full items-center gap-2">
+              <WorktreeMainDirectoryIcon className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">
+                {t(I18nKey.WORKTREE$BUTTON_DIRECT)}
+              </span>
+              {!worktreePreferenceEnabled ? (
+                <Check className="h-4 w-4 shrink-0" aria-hidden />
+              ) : null}
             </span>
           </ContextMenuListItem>
           <ContextMenuListItem
@@ -88,16 +86,14 @@ export function GitControlBarWorktreeMenu({
               onClose();
             }}
           >
-            <span className="flex items-center gap-2">
-              <Check
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  worktreePreferenceEnabled ? "opacity-100" : "opacity-0",
-                )}
-                aria-hidden
-              />
+            <span className="flex min-w-0 w-full items-center gap-2">
               <Split className="h-4 w-4 shrink-0" aria-hidden />
-              <span>{t(I18nKey.WORKTREE$START_NEW_WORKTREE)}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {t(I18nKey.WORKTREE$START_NEW_WORKTREE)}
+              </span>
+              {worktreePreferenceEnabled ? (
+                <Check className="h-4 w-4 shrink-0" aria-hidden />
+              ) : null}
             </span>
           </ContextMenuListItem>
         </>

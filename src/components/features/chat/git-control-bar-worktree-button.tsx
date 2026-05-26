@@ -1,11 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { GitBranch, Split } from "lucide-react";
+import { Split } from "lucide-react";
+import { WorktreeMainDirectoryIcon } from "#/components/features/chat/worktree-main-directory-icon";
 import { ComboboxCaretInline } from "#/ui/combobox-caret";
 import { I18nKey } from "#/i18n/declaration";
 import { Provider } from "#/types/settings";
 import { cn } from "#/utils/utils";
+import {
+  formControlBorderClassName,
+  formControlSurfaceClassName,
+  formControlTransitionClassName,
+} from "#/utils/form-control-classes";
 import {
   isInWorktreeMode,
   resolveConversationBranch,
@@ -109,7 +115,10 @@ export function GitControlBarWorktreeButton({
     defaultLocalBranch,
   );
   const showMuted = status.displayMode === "non-git";
-  const WorktreeIcon = isInWorktreeMode(status.displayMode) ? Split : GitBranch;
+  const WorktreeIcon = isInWorktreeMode(status.displayMode)
+    ? Split
+    : WorktreeMainDirectoryIcon;
+  const isHomeMode = mode === "home";
 
   const menu =
     menuOpen && !disabled && portalStyle ? (
@@ -141,18 +150,41 @@ export function GitControlBarWorktreeButton({
           }}
           title={buttonLabel}
           className={cn(
-            "group flex flex-row items-center justify-between gap-2 pl-2.5 pr-2 py-1 rounded-[100px] w-fit max-w-[220px] truncate relative",
-            "border border-[var(--oh-border)] bg-transparent",
-            disabled
-              ? "cursor-not-allowed opacity-50"
-              : "cursor-pointer hover:border-[var(--oh-border-subtle)]",
+            "group flex flex-row items-center gap-2 py-1 w-fit max-w-[220px] truncate relative text-white",
+            isHomeMode
+              ? "rounded-full px-2.5"
+              : "justify-between rounded-[100px] pl-2.5 pr-2",
+            isHomeMode
+              ? cn(
+                  formControlBorderClassName,
+                  formControlSurfaceClassName,
+                  formControlTransitionClassName,
+                  disabled
+                    ? "cursor-not-allowed opacity-50"
+                    : "cursor-pointer hover:bg-surface-raised",
+                )
+              : cn(
+                  "border border-[var(--oh-border)] bg-transparent",
+                  disabled
+                    ? "cursor-not-allowed opacity-50"
+                    : "cursor-pointer hover:border-[var(--oh-border-subtle)]",
+                ),
             showMuted && !disabled && "opacity-80",
           )}
         >
-          <div className="w-3 h-3 flex items-center justify-center flex-shrink-0 text-white">
-            <WorktreeIcon className="w-3 h-3" strokeWidth={2} aria-hidden />
-          </div>
-          <span className="font-normal text-white text-sm leading-5 truncate">
+          <span
+            className={cn(
+              "flex shrink-0 items-center justify-center text-white",
+              isHomeMode ? "h-4 w-4" : "h-3 w-3",
+            )}
+          >
+            <WorktreeIcon
+              className={cn(isHomeMode ? "h-4 w-4" : "h-3 w-3")}
+              strokeWidth={2}
+              aria-hidden
+            />
+          </span>
+          <span className="font-normal text-sm leading-5 truncate">
             {buttonLabel}
           </span>
           <ComboboxCaretInline isOpen={menuOpen} />

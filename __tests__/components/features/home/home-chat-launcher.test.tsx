@@ -174,6 +174,12 @@ vi.mock("#/components/features/home/home-git-control-bar-preview", () => ({
   ),
 }));
 
+vi.mock("#/components/features/chat/git-control-bar-worktree-button", () => ({
+  GitControlBarWorktreeButton: () => (
+    <div data-testid="home-worktree-start-button" />
+  ),
+}));
+
 const renderLauncher = () =>
   render(<HomeChatLauncher />, {
     wrapper: ({ children }) => (
@@ -256,6 +262,15 @@ describe("HomeChatLauncher", () => {
     toast.remove();
   });
 
+  it("shows the worktree start control before a workspace is selected", () => {
+    renderLauncher();
+
+    expect(screen.getByTestId("home-worktree-start-button")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("stub-git-control-bar-preview"),
+    ).not.toBeInTheDocument();
+  });
+
   it("creates a conversation with just the typed query and navigates when no workspace is selected", async () => {
     const createSpy = vi
       .spyOn(AgentServerConversationService, "createConversation")
@@ -272,6 +287,8 @@ describe("HomeChatLauncher", () => {
       undefined,
       undefined,
       null,
+      undefined,
+      undefined,
       undefined,
       undefined,
       undefined,
@@ -304,6 +321,8 @@ describe("HomeChatLauncher", () => {
       undefined,
       null,
       "/p/app",
+      undefined,
+      undefined,
       undefined,
       undefined,
     );
@@ -361,6 +380,8 @@ describe("HomeChatLauncher", () => {
       undefined,
       undefined,
       undefined,
+      undefined,
+      undefined,
     );
     await waitFor(() =>
       expect(mockNavigate).toHaveBeenCalledWith("/conversations/conv-repo"),
@@ -383,6 +404,8 @@ describe("HomeChatLauncher", () => {
       undefined,
       undefined,
       null,
+      undefined,
+      undefined,
       undefined,
       undefined,
       undefined,
@@ -463,6 +486,8 @@ describe("HomeChatLauncher", () => {
       undefined,
       undefined,
       null,
+      undefined,
+      undefined,
       undefined,
       undefined,
       undefined,
