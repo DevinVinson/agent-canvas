@@ -23,6 +23,8 @@ export interface ConversationMetadata {
    * is ambiguous (issue #1082).
    */
   active_profile?: string | null;
+  /** Whether a git worktree was requested when this conversation was created. */
+  worktree_enabled?: boolean;
 }
 
 type StoredMetadata = Record<string, ConversationMetadata>;

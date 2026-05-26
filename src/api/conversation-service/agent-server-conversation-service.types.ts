@@ -73,6 +73,7 @@ export interface AppConversationStartRequest {
   parent_conversation_id?: string | null;
   agent_type?: "default" | "plan";
   sandbox_id?: string | null;
+  worktree?: boolean | null;
   plugins?: PluginSpec[] | null; // Plugins to load when starting the conversation
 }
 

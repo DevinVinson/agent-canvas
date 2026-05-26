@@ -23,6 +23,7 @@ import {
   TOAST_OPTIONS,
 } from "#/utils/custom-toast-handlers";
 import { getWorkspacesUnsupportedMessage } from "#/utils/workspaces-compatibility";
+import { useWorktreePreferenceEnabled } from "#/stores/worktree-preference-store";
 import { HomeHeaderTitle } from "./home-header/home-header-title";
 import { OpenLauncherButton } from "./open-launcher-button";
 import { OpenWorkspaceDialog } from "./open-workspace-dialog";
@@ -53,6 +54,7 @@ export function HomeChatLauncher() {
   const workspacesUnsupportedMessage = isLocal
     ? getWorkspacesUnsupportedMessage(workspacesError, t)
     : null;
+  const worktreeEnabled = useWorktreePreferenceEnabled();
 
   const hasSelection = isLocal
     ? !!pendingWorkspace
@@ -88,6 +90,10 @@ export function HomeChatLauncher() {
           branch: pendingBranch.name,
         },
       };
+    }
+
+    if (worktreeEnabled && hasSelection) {
+      variables = { ...variables, worktree: true };
     }
 
     // Loading toast gives the user a clear signal that the request is in

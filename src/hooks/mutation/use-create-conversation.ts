@@ -23,6 +23,7 @@ interface CreateConversationVariables {
   agentType?: "default" | "plan";
   plugins?: PluginSpec[];
   workingDir?: string;
+  worktree?: boolean;
 }
 
 interface CreateConversationResponse {
@@ -53,6 +54,7 @@ export const useCreateConversation = () => {
         workingDir,
         parentConversationId,
         agentType,
+        worktree,
       } = variables;
 
       const conversation =
@@ -70,6 +72,8 @@ export const useCreateConversation = () => {
           workingDir,
           parentConversationId,
           agentType,
+          undefined,
+          worktree,
         );
 
       // Stamp the active LLM profile onto the (local) conversation so the

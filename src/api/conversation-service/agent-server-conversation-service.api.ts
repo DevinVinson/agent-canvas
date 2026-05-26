@@ -348,6 +348,7 @@ class AgentServerConversationService {
     parentConversationId?: string,
     agentType?: "default" | "plan",
     sandboxId?: string,
+    worktree?: boolean,
   ): Promise<AppConversationStartTask> {
     if (getActiveBackend().backend.kind === "cloud") {
       // Cloud path mirrors OpenHands' frontend: build a flat
@@ -370,8 +371,20 @@ class AgentServerConversationService {
         parent_conversation_id: parentConversationId ?? null,
         agent_type: agentType,
         sandbox_id: sandboxId ?? null,
+        worktree: worktree ?? null,
       };
-      return createCloudAppConversation(request);
+      const task = await createCloudAppConversation(request);
+
+      if (metadata?.selected_repository && task.app_conversation_id) {
+        setStoredConversationMetadata(task.app_conversation_id, {
+          selected_repository: metadata.selected_repository,
+          selected_branch: metadata.selected_branch ?? null,
+          git_provider: metadata.git_provider ?? null,
+          worktree_enabled: worktree ?? false,
+        });
+      }
+
+      return task;
     }
 
     const settings = await SettingsService.getSettings();
@@ -394,6 +407,7 @@ class AgentServerConversationService {
       plugins,
       conversationId,
       workingDir,
+      worktree,
     });
 
     const data = await new ConversationClient(
@@ -414,6 +428,14 @@ class AgentServerConversationService {
         selected_branch: metadata?.selected_branch ?? null,
         git_provider: metadata?.git_provider ?? null,
         selected_workspace: workingDirOverride ?? null,
+        worktree_enabled: worktree ?? false,
+      });
+    } else if (worktree) {
+      setStoredConversationMetadata(data.id, {
+        selected_repository: null,
+        selected_branch: null,
+        git_provider: null,
+        worktree_enabled: true,
       });
     }
 

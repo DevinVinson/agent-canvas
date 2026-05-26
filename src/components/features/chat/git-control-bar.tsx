@@ -26,6 +26,8 @@ import { getStoredConversationMetadata } from "#/api/conversation-metadata-store
 import { useActiveBackend } from "#/contexts/active-backend-context";
 import { useUserProviders } from "#/hooks/use-user-providers";
 import { useOptionalScrollContext } from "#/context/scroll-context";
+import { GitControlBarWorktreeButton } from "./git-control-bar-worktree-button";
+import { useWorktreeStatus } from "#/hooks/query/use-worktree-status";
 
 interface GitControlBarProps {
   onSuggestionsClick: (value: string) => void;
@@ -52,6 +54,7 @@ export function GitControlBar({ onSuggestionsClick }: GitControlBarProps) {
   const { data: conversation } = useActiveConversation();
   const { repositoryInfo } = useTaskPolling();
   const { data: localGitInfo } = useLocalGitInfo();
+  const worktreeStatus = useWorktreeStatus();
   const webSocketStatus = useUnifiedWebSocketStatus();
   const conversationWebSocket = useConversationWebSocket();
   const isLoadingHistory = conversationWebSocket?.isLoadingHistory ?? false;
@@ -217,8 +220,15 @@ export function GitControlBar({ onSuggestionsClick }: GitControlBarProps) {
   // branch or push/pull/PR also count). When false, the bar has nothing to
   // show — return null so the wrapper above collapses to its natural padding
   // instead of leaving an empty DOM node below the chat input.
-  const hasAnyContent = showRepoButton || !!selectedBranch || hasRepository;
+  const hasAnyContent =
+    showRepoButton ||
+    !!selectedBranch ||
+    hasRepository ||
+    (isLocalBackend && !!conversation);
   if (!hasAnyContent) return null;
+
+  const showWorktreeControl =
+    !!workspaceName || !!selectedRepository || !!conversation;
 
   return (
     <div className="flex flex-row items-center">
@@ -238,6 +248,20 @@ export function GitControlBar({ onSuggestionsClick }: GitControlBarProps) {
             selectedBranch={selectedBranch}
             selectedRepository={selectedRepository}
             gitProvider={gitProvider}
+          />
+        ) : null}
+
+        {showWorktreeControl ? (
+          <GitControlBarWorktreeButton
+            mode="conversation"
+            status={worktreeStatus}
+            branch={selectedBranch}
+            repository={selectedRepository}
+            gitProvider={gitProvider}
+            defaultLocalBranch={selectedBranch}
+            workspacePath={workspacePath}
+            onHandoff={onSuggestionsClick}
+            handoffDisabled={!isConversationReady}
           />
         ) : null}
 

@@ -277,7 +277,7 @@ describe("buildStartConversationRequest", () => {
     expect(payload.workspace.working_dir).toBe(workingDir);
   });
 
-  it("always requests a git worktree for new conversations", () => {
+  it("defaults worktree to false for new conversations", () => {
     const payload = buildStartConversationRequest({
       settings: {
         ...DEFAULT_SETTINGS,
@@ -286,6 +286,21 @@ describe("buildStartConversationRequest", () => {
           llm: { model: "nested-model" },
         },
       },
+    }) as { worktree: boolean };
+
+    expect(payload.worktree).toBe(false);
+  });
+
+  it("forwards worktree preference when explicitly enabled", () => {
+    const payload = buildStartConversationRequest({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        agent_settings: {
+          ...DEFAULT_SETTINGS.agent_settings,
+          llm: { model: "nested-model" },
+        },
+      },
+      worktree: true,
     }) as { worktree: boolean };
 
     expect(payload.worktree).toBe(true);
