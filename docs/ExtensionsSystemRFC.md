@@ -8,26 +8,26 @@ Current repo baseline: merged through `upstream/main` at `40844533`. The current
 
 ## 1. Summary
 
-Agent Canvas should ship a first-class **Canvas Extensions** system: user-installable npm packages that extend the local Canvas experience and optionally contribute components to the agent runtime through SDK-supported surfaces.
+Agent Canvas should ship a first-class **Canvas Extensions** system: user-installable npm packages that extend the local Canvas experience and optionally contribute components to the agent runtime through already-supported Agent Server surfaces.
 
-A Canvas Extension can contribute UI views, left navigation entries, color themes, settings panels, conversation right panels, custom tool/event visualizers, launch templates, OpenHands SDK plugin sources, MCP server templates, and system-prompt context blocks. Canvas Extensions are installed and managed by a small local Node service started by the `agent-canvas` launcher. Agent-side behavior is forwarded only through already-supported SDK surfaces; Canvas does not patch or load code inside the Agent Server.
+A Canvas Extension can contribute UI views, left navigation entries, color themes, settings panels, conversation right panels, custom tool/event visualizers, launch templates, optional references to reusable agent plugins, MCP server templates, and system-prompt context blocks. Canvas Extensions are installed and managed by a small local Node service started by the `agent-canvas` launcher. Agent-side behavior is forwarded only through already-supported Agent Server surfaces such as `plugins`, MCP settings, and `AgentContext`; Canvas does not patch or load code inside the Agent Server.
 
 **MVP delivers:**
 
-- CLI install/enable/disable/remove for Canvas Extension packages, plus an Extensions page under Customize for inventory and diagnostics.
+- CLI install/enable/disable/remove for Canvas Extension packages, CLI install support for portable agent skills/plugins into `.agent` files, plus an Extensions page under Customize for Canvas Extension inventory and diagnostics.
 - Trusted same-origin extension views and dev-mode authoring with live reload.
 - Focused UI contribution surfaces: left navigation entries; color themes in Settings > Application > Color Theme; settings panels under an Extensions header; conversation right panels beside Files/Browser/Terminal; and tool visualizers that compose with the built-in registry from PR #1246.
 
-The tool visualizer contract follows the OpenHands agent team's direction (draft PR #1277 is the current lead) rather than a parallel Canvas-only renderer; see §12.9. The CLI can detect adjacent artifact types (standalone SDK plugins, `SKILL.md` folders), but the first slice installs and enables only packages with a Canvas Extension manifest.
+The tool visualizer contract follows the OpenHands agent team's direction (draft PR #1277 is the current lead) rather than a parallel Canvas-only renderer; see §12.9. The `agent-canvas` CLI becomes a small artifact installer for three distinct classes: Canvas Extensions, portable agent plugins, and portable skills. Canvas Extensions install into the Agent Canvas extension store; skills and plugins install into `.agent` files and remain portable agent artifacts, not Canvas Extensions.
 
-**Deferred:** marketplace, signing, sandboxed iframe views, broad root-mounted/shared-dependency runtimes, standalone skill/plugin management, and agent-mediated installation. The manifest reserves a future iframe entry point (`browser.entry`) so stronger isolation can be added later without changing package shape; see §11.1.
+**Deferred:** marketplace, signing, sandboxed iframe views, broad root-mounted/shared-dependency runtimes, MCP-template installation/management, richer portable-skill/plugin marketplace UX, and agent-mediated installation. The manifest reserves a future iframe entry point (`browser.entry`) so stronger isolation can be added later without changing package shape; see §11.1.
 
 **Lifecycle tiers (capability-gated by launch mode).** Extension lifecycle has two tiers, selected by how Canvas was launched, not by a per-extension setting:
 
 - **Restart-bounded (default).** Packaged global installs, Docker images, and any static-served build are CLI-only: install, enable, disable, update, and remove run from the CLI, and changes apply on the next process start. The Extensions page is read-only inventory and diagnostics. This is the baseline assumed throughout the rest of this RFC.
 - **Live management (development source stack only).** A stack started from a source checkout with `npm run dev` or `npm run dev:minimal` additionally gets live management. The launcher issues a `liveExtensionManagement` capability flag, the Customize > Extensions page exposes enable/disable controls, and newly installed extensions are picked up by re-reading the install store and refetching the registry — without a full Canvas restart. This is the mode in which an in-Canvas agent can build an extension and the user can enable it in the same session, mirroring how Canvas already lets users add an LLM profile and refresh what is available.
 
-Live management removes only the restart step for enable/disable and new-extension discovery on a trusted local dev machine. It does not relax the consent model, the permission re-approval rules, or the agent-runtime boundary: newly discovered extensions still arrive disabled, permission-expanding states still require review, and agent-side contributions (SDK plugins, context suffix) still apply only at conversation creation. See §15.2, §17, §20, §24, and §27 Decision 1.
+Live management removes only the restart step for enable/disable and new-extension discovery on a trusted local dev machine. It does not relax the consent model, the permission re-approval rules, or the agent-runtime boundary: newly discovered extensions still arrive disabled, permission-expanding states still require review, and agent-side contributions (agent plugin references, context suffix) still apply only at conversation creation. See §15.2, §17, §20, §24, and §27 Decision 1.
 
 ## 2. Motivation
 
@@ -42,17 +42,17 @@ The system must preserve the existing security and operational boundaries betwee
 ## 3. Product Vocabulary
 
 - **Canvas Extension** — an Agent Canvas-specific npm package with an `agent-canvas.extension.json` manifest. It extends the Agent Canvas UI, UX, and local product behavior.
-- **Canvas Extension Host** — local Node HTTP service launched by `agent-canvas`; installs, validates, and serves Canvas Extension packages.
+- **Canvas Extension Host** — local Node HTTP service launched by `agent-canvas`; validates, serves, and projects installed Canvas Extension packages.
 - **OpenHands Extensions Catalog** — the existing `@openhands/extensions` package/repository that provides shared OpenHands assets such as integrations/catalog data. It is not the Canvas Extension format and should not be treated as an installable Canvas Extension package by default.
-- **SDK Plugin** — the OpenHands SDK plugin format (`.plugin/plugin.json`), containing skills, hooks, MCP config, agents, and slash commands. Canvas Extensions may bundle or reference SDK plugins.
+- **Portable Agent Plugin** — a reusable agent artifact, usually rooted at `.plugin/plugin.json` or a compatible plugin manifest, that can contain skills, scripts/hooks, MCP configuration, agents, slash commands, or related agent runtime assets. Plugins are intended to work across agent tools such as Codex, Claude, Gemini, and OpenHands. The `agent-canvas` CLI may install them into `.agent` files, but they are not Canvas Extensions.
 - **MCP Server** — external tool server config installed into agent settings.
-- **Skill** — an OpenHands skill loaded by the SDK; usually delivered via an SDK plugin rather than copied into user skill directories.
+- **Skill** — a portable agent skill, usually a `SKILL.md` artifact or a skill directory. Skills install into `.agent` files through the agent-artifact installer and are not Canvas Extensions.
 - **Tool Visualizer** — a React renderer for one action/observation kind or one more specific tool variant, selected before the built-in markdown fallback.
 - **Color Theme** — a Canvas Extension-provided theme definition that appears as an option in Settings > Application > Color Theme. Theme-only Canvas Extensions are valid and should not need to ship a view or settings panel.
 - **Settings Panel** — a Canvas Extension-owned settings surface shown only under a visible Extensions header after the built-in settings sections.
 - **Conversation Right Panel** — a Canvas Extension-owned panel in the conversation work area alongside built-in Files, Browser, and Terminal panels.
 
-User-facing UI should use "Canvas Extension" when the distinction matters, and may shorten to "Extension" only inside an already-labeled Canvas Extensions area. Avoid "plugin" in the Canvas product surface because the SDK already owns that term. Avoid naming top-level app routes or hubs "Extensions" because the product already renamed that old section to Customize.
+User-facing UI should use "Canvas Extension" when the distinction matters, and may shorten to "Extension" only inside an already-labeled Canvas Extensions area. Avoid "plugin" in the Canvas product surface because portable agent artifacts already own that term. Avoid naming top-level app routes or hubs "Extensions" because the product already renamed that old section to Customize.
 
 ## 4. Goals
 
@@ -62,7 +62,7 @@ User-facing UI should use "Canvas Extension" when the distinction matters, and m
 - In a development source stack (`npm run dev`), additionally supports live enable/disable from the Extensions page and live discovery of newly installed extensions without a full restart, so an in-Canvas agent can author an extension and the user can enable it in the same session.
 - Management commands work from a globally installed npm package without starting the full stack and without requiring the static `build/` directory.
 - Keeps the Agent Server unmodified for MVP.
-- Aligns with the OpenHands SDK plugin format rather than inventing a competing format.
+- Installs portable skills/plugins without reclassifying them as Canvas Extensions or putting them in the Canvas Extension registry.
 - Lets one Canvas Extension package ship UI plus agent-runtime descriptors.
 - Third-party executable code is opt-in and auditable.
 - Local development works without rebuilding Agent Canvas.
@@ -71,23 +71,24 @@ User-facing UI should use "Canvas Extension" when the distinction matters, and m
 ## 5. Non-Goals
 
 - No extension may patch or monkeypatch the Agent Server.
-- No extension may register server-side tools except through SDK-supported plugin/MCP mechanisms.
+- No extension may register server-side tools except through portable agent plugin and MCP mechanisms that the Agent Server already supports.
 - No stable extension API may expose Canvas internals, parent React components, or DOM mutation hooks. MVP browser modules are trusted same-origin code, so DOM access is a trust concern rather than an enforceable sandbox boundary.
 - No broad root-mounted route-less JavaScript surface lands before narrower slot APIs prove the need. Tool visualizers are the first route-less JS surface because the registry seam already exists and the fallback behavior is well defined.
 - No repository-local files may modify the running Canvas browser experience simply because a conversation is attached to that repository.
 - No npm install scripts run by default during extension installation.
-- No standalone SDK plugin, standalone `SKILL.md`, or MCP template artifact becomes independently active in the first MVP slice; those artifacts must be wrapped by a Canvas Extension until their product UX is designed.
+- No portable skill/plugin installed through `agent-canvas` becomes a Canvas Extension, appears in the Extensions inventory, or gains Canvas UI contribution powers. They remain agent artifacts installed into `.agent` files.
+- No standalone MCP template artifact becomes independently active in the first MVP slice; MCP-template install UX remains deferred.
 - No public marketplace, ratings, payments, reviews, or remote trust service in the first PRs.
 
 ## 6. Prior Art
 
 Two existing systems informed this design.
 
-**Hermes (Nous Research).** We adopt: explicit opt-in enablement, three lifecycle states (enabled/disabled/installed), schema-validated manifests with capability declarations, multiple narrow contribution surfaces instead of one all-powerful hook API, good diagnostics (`list`, `doctor`, debug logs, skipped reasons), and explicit secret/env declarations. We do **not** adopt Hermes' direct `ctx.register_tool()` model or its automatic loading of user/project code — Canvas should not be an agent-server plugin loader, and tool override belongs in SDK governance.
+**Hermes (Nous Research).** We adopt: explicit opt-in enablement, three lifecycle states (enabled/disabled/installed), schema-validated manifests with capability declarations, multiple narrow contribution surfaces instead of one all-powerful hook API, good diagnostics (`list`, `doctor`, debug logs, skipped reasons), and explicit secret/env declarations. We do **not** adopt Hermes' direct `ctx.register_tool()` model or its automatic loading of user/project code — Canvas should not be an Agent Server plugin loader, and tool override belongs in agent runtime governance.
 
-**Pi (pi.dev).** We adopt: a single generic `install` verb that detects artifact type, multiple authoring shapes (single directory, packaged module, package wrapping skills/SDK plugins/MCP templates), a developer reload story for explicitly registered local extensions, and clear language that local extensions are code requiring trust. We do **not** adopt Pi's repository-auto-discovery of extensions, its in-process tool registration, or its built-in tool overriding — those collapse the local/remote runtime boundary that Canvas must preserve.
+**Pi (pi.dev).** We adopt: a single generic `install` verb that detects artifact type, multiple authoring shapes (single directory, packaged module, package wrapping skills/agent plugins/MCP templates), a developer reload story for explicitly registered local extensions, and clear language that local extensions are code requiring trust. We do **not** adopt Pi's repository-auto-discovery of extensions, its in-process tool registration, or its built-in tool overriding — those collapse the local/remote runtime boundary that Canvas must preserve.
 
-A prior internal prototype (`dv/addons-clean-v1`) contributed the typed host SDK shape, manifest validation, stable extension IDs, route host with error boundary, sidebar ordering, and path-normalization patterns. It is not merge-ready: it assumes a Vite build-time registry, which a globally-installed CLI cannot regenerate per install. The current tree no longer has a `src/addons/` implementation to remove; PR 0 should use the `src/canvas-extensions/` namespace so neither the old `addons` vocabulary nor the old app-level "Extensions" section leaks back in.
+A prior internal prototype (`dv/addons-clean-v1`) contributed the typed host API shape, manifest validation, stable extension IDs, route host with error boundary, sidebar ordering, and path-normalization patterns. It is not merge-ready: it assumes a Vite build-time registry, which a globally-installed CLI cannot regenerate per install. The current tree no longer has a `src/addons/` implementation to remove; PR 0 should use the `src/canvas-extensions/` namespace so neither the old `addons` vocabulary nor the old app-level "Extensions" section leaks back in.
 
 ## 7. Architecture
 
@@ -96,7 +97,8 @@ Three layers, each with a clear boundary:
 ```mermaid
 flowchart LR
   User["User runs agent-canvas"] --> CLI["bin/agent-canvas.mjs"]
-  CLI --> Host["Extension Host (Node)"]
+  CLI --> Host["Canvas Extension Host (Node)"]
+  CLI --> AgentFiles["Portable agent config (.agent files)"]
   CLI --> Ingress["Ingress proxy"]
   CLI --> AS["Agent Server"]
   CLI --> UI["Static or Vite Canvas frontend"]
@@ -107,16 +109,16 @@ flowchart LR
   Ingress -->|"/api/* and /sockets"| AS
   Ingress -->|"/*"| UI
 
-  UI -->|"registry, install, enable, settings"| Host
-  UI -->|"create conversation with PluginSpec[]"| AS
+  UI -->|"registry, settings, live enable/rescan"| Host
+  UI -->|"create conversation with PluginSource[]"| AS
   Host -->|"reads npm packages"| Store["~/.openhands/agent-canvas/installations"]
 ```
 
 ### 7.1 Extension Host (local Node service)
 
-The Extension Host runs in every launcher mode that supports extensions: the packaged `agent-canvas` CLI, `npm run dev`, `npm run dev:minimal`, and `npm run dev:static`. It owns:
+The Extension Host runs in every launcher mode that supports extensions: the packaged `agent-canvas` CLI, `npm run dev`, `npm run dev:minimal`, and `npm run dev:static`. It owns Canvas Extension state only:
 
-- npm package install/update/remove (always with `--ignore-scripts` by default).
+- Canvas Extension package install/update/remove (always with `--ignore-scripts` by default).
 - Manifest discovery and schema validation.
 - Local package cache and `package-lock.json` for reproducibility.
 - Enabled/disabled state.
@@ -125,6 +127,8 @@ The Extension Host runs in every launcher mode that supports extensions: the pac
 - Serving a registry JSON document to the frontend.
 - Producing launch contributions for the frontend.
 - Diagnostics and logs.
+
+Portable skills and plugins use the CLI's agent-artifact installer instead. That installer writes/updates the appropriate `.agent` files and must not project those artifacts into the Canvas Extension registry or serve them as Canvas browser assets.
 
 The Extension Host **must not** proxy arbitrary requests to the Agent Server. When it exposes Agent Server data through the supported extension API, it does so through narrow, typed, permission-declared capabilities.
 
@@ -154,7 +158,9 @@ The Agent Server is unchanged for MVP. Canvas treats it as a black box and only 
 
 Command dispatch is part of the release contract. `agent-canvas install`, `list`, `enable`, `disable`, `remove`, `update`, and `doctor` must parse and run before the launcher checks for a static `build/` directory or imports `scripts/dev-with-automation.mjs`. The full stack still requires packaged frontend assets, but management commands must work from a global npm install and from source checkouts that have not run `npm run build`.
 
-Default lifecycle is CLI-only and restart-bounded. Users enable, disable, update, or remove Canvas Extensions from the CLI, then restart `agent-canvas`. In packaged, Docker, and static-served modes the Customize > Extensions page is read-only inventory and diagnostics; it does not install, enable, disable, update, or uninstall packages in the browser, and a running Canvas process does not promise live revocation after an out-of-band CLI state change.
+Default Canvas Extension lifecycle is CLI-only and restart-bounded. Users enable, disable, update, or remove Canvas Extensions from the CLI, then restart `agent-canvas`. In packaged, Docker, and static-served modes the Customize > Extensions page is read-only inventory and diagnostics; it does not install, enable, disable, update, or uninstall packages in the browser, and a running Canvas process does not promise live revocation after an out-of-band CLI state change.
+
+The same CLI install surface also handles portable agent skills and plugins. Those artifacts are installed into `.agent` files through an agent-artifact installer and stay portable across agent tools; they are not enabled through the Extensions page, not served by the Extension Host, and not granted Canvas UI contribution APIs. If an install target is ambiguous, the CLI should require an explicit target/scope before mutating `.agent` files.
 
 **Development source stack exception.** When Canvas is launched with `npm run dev` or `npm run dev:minimal`, the launcher issues the `liveExtensionManagement` capability and the Extensions page additionally exposes enable/disable controls plus discovery of newly installed extensions without a restart (see §15.2, §17, §24). Install, update, and remove remain CLI verbs even in this mode; live management covers enable/disable and registry discovery, which are the steps an in-Canvas agent authoring loop needs. The CLI verbs below behave identically in both tiers.
 
@@ -174,17 +180,23 @@ agent-canvas install @acme/agent-canvas-github
 agent-canvas install @acme/agent-canvas-github@1.2.3
 agent-canvas install ./local-extension
 agent-canvas install ../my-extension --dev
+agent-canvas install ./agent-plugin
+agent-canvas install ./skills/codeguard
 ```
 
 Detection order:
 
 1. `package.json` has `agentCanvas.manifest` or an `agent-canvas.extension.json` file is present → Canvas Extension.
-2. `.plugin/plugin.json` is present → OpenHands SDK plugin reference.
-3. `SKILL.md` is present → skill.
+2. `.plugin/plugin.json`, `.claude-plugin/plugin.json`, or another supported portable plugin manifest is present → portable agent plugin.
+3. `SKILL.md` is present → portable skill.
 4. Future MCP template manifest → MCP template.
-5. Multiple markers present → the explicit Canvas Extension manifest wins (it may intentionally wrap SDK plugin, skill, or MCP contributions).
+5. Multiple markers present → the explicit Canvas Extension manifest wins for Canvas Extension installation. Any bundled plugin/skill files remain separate agent-runtime assets and are only used when the Canvas Extension manifest declares an agent contribution.
 
-MVP behavior: Canvas Extension artifacts install and can be enabled through the CLI. Standalone SDK plugin, skill, or MCP-template detection returns a typed "detected but unsupported in MVP" diagnostic unless the artifact is wrapped by a Canvas Extension manifest. This keeps the single `install` verb and detector extensible without silently mutating SDK/user skill state before Canvas has the matching product UX.
+MVP behavior:
+
+- Canvas Extension artifacts install into `~/.openhands/agent-canvas/installations/` and can be enabled/disabled through Canvas Extension lifecycle commands.
+- Portable agent plugins and skills install into the appropriate `.agent` files and are listed/diagnosed as agent artifacts, not as Canvas Extensions.
+- MCP-template artifacts can be detected but return a typed "detected but unsupported in MVP" diagnostic until their install UX is designed.
 
 For Canvas Extensions, install validates the manifest, shows permissions, installs with scripts denied by default, and enables the extension after consent. Non-interactive flags:
 
@@ -201,6 +213,9 @@ Default is `--install-scripts=deny` (npm `--ignore-scripts`).
 ```sh
 agent-canvas list
 agent-canvas list canvas-extensions
+agent-canvas list agent-artifacts
+agent-canvas list plugins
+agent-canvas list skills
 agent-canvas enable acme.github
 agent-canvas disable acme.github
 agent-canvas remove acme.github
@@ -208,7 +223,7 @@ agent-canvas update acme.github
 agent-canvas doctor
 ```
 
-These commands operate without starting the full UI stack. Type filters keep the command useful once skills/MCP/plugins share the installer.
+These commands operate without starting the full UI stack. `enable`/`disable` are Canvas Extension lifecycle commands. Portable skills/plugins are active according to the `.agent` file they were installed into; the CLI should list, diagnose, update, and remove them through the agent-artifact path without projecting them into the Canvas Extension registry.
 
 ### Process kill switch
 
@@ -220,9 +235,9 @@ agent-canvas --disable-extensions
 
 This flag starts Canvas with all extension contributions ignored for that process. It does not create registry state, does not mutate `config.json`, and does not support selective run-only enablement. Per-run exact sets (`--extensions ...`), single-extension run overrides, and `install --run-only` are deferred until there is a concrete test/support workflow that needs them.
 
-## 9. Installable Artifact Store
+## 9. Canvas Extension Install Store
 
-Canvas already stores client state at `~/.openhands/agent-canvas/` (session API keys, conversations, workspaces, automations DB, bash events). Installable artifacts live as a sibling so users have one obvious place to inspect and back up Canvas state:
+Canvas already stores client state at `~/.openhands/agent-canvas/` (session API keys, conversations, workspaces, automations DB, bash events). Canvas Extension packages live as a sibling so users have one obvious place to inspect and back up Canvas-specific extension state:
 
 ```text
 ~/.openhands/agent-canvas/installations/
@@ -235,20 +250,22 @@ Canvas already stores client state at `~/.openhands/agent-canvas/` (session API 
   node_modules/
 ```
 
-`package.json` is a private package used only to install npm-backed artifacts. `artifacts.json` records detected artifact type, installed package/path, manifest location, state, and diagnostics. `config.json` records enable/disable state and non-secret settings:
+`package.json` is a private package used only to install npm-backed Canvas Extensions. `artifacts.json` records installed Canvas Extension package/path, manifest location, state, and diagnostics. `config.json` records Canvas Extension enable/disable state and non-secret settings:
 
 ```json
 {
   "schemaVersion": 1,
-  "enabled":  { "extensions": ["acme.github"], "plugins": [], "skills": [], "mcpTemplates": [] },
-  "disabled": { "extensions": [], "plugins": [], "skills": [], "mcpTemplates": [] },
+  "enabled":  { "extensions": ["acme.github"] },
+  "disabled": { "extensions": [] },
   "settings": { "acme.github": { "defaultBranch": "main" } }
 }
 ```
 
 Secrets are never stored in this file. They are saved through the existing Agent Server secrets service.
 
-**Concurrency and atomic writes.** Canvas writes the store's JSON files (`config.json`, `artifacts.json`) with temp-file-then-rename and reads each in a single read, so a reader never observes a partial write. Multi-step transactions — install, update, remove — take an exclusive lock at `installations/.lock` so a CLI mutation and a running Host's `rescan` cannot interleave mid-transaction; npm's own `package-lock.json` covers the dependency tree. `rescan` reads a consistent snapshot and, if the lock is held, briefly waits and retries or reports `install in progress` rather than reading torn state. This path is exercised by design: the agent-authoring loop runs a CLI install while the Host is live, then rescans.
+Portable skills and plugins do not live in this store as Canvas Extension artifacts. Their installer writes to `.agent` files using the agent-artifact path described in §8, and `doctor` may report on them separately.
+
+**Concurrency and atomic writes.** Canvas writes the store's JSON files (`config.json`, `artifacts.json`) with temp-file-then-rename and reads each in a single read, so a reader never observes a partial write. Multi-step Canvas Extension transactions — install, update, remove — take an exclusive lock at `installations/.lock` so a CLI mutation and a running Host's `rescan` cannot interleave mid-transaction; npm's own `package-lock.json` covers the dependency tree. `rescan` reads a consistent snapshot and, if the lock is held, briefly waits and retries or reports `install in progress` rather than reading torn state. This path is exercised by design: the agent-authoring loop runs a CLI install while the Host is live, then rescans.
 
 All installation is local to the Agent Canvas client. `agent-canvas install` never installs into a remote Agent Server, cloud sandbox, or team backend.
 
@@ -300,7 +317,7 @@ The host package must publish everything the global CLI and extension authors ne
   "activationEvents": ["onStartup"],
   "permissions": {
     "ui": ["views", "leftNavigation", "colorThemes", "settingsPanels", "conversationPanels", "toolVisualizers"],
-    "agent": ["sdkPlugins", "context"],
+    "agent": ["plugins", "context"],
     "mcp": ["templates"],
     "network": ["https://api.github.com"]
   },
@@ -363,7 +380,7 @@ The host package must publish everything the global CLI and extension authors ne
         "observationKinds": ["MCPToolObservation"]
       }
     ],
-    "agentPlugins": [
+    "agentPluginReferences": [
       { "id": "github-pr-review", "source": "./agent/github-pr-review", "autoInclude": "manual" }
     ],
     "mcpServers": [
@@ -379,7 +396,7 @@ The host package must publish everything the global CLI and extension authors ne
         "id": "review-pr",
         "title": "Review a Pull Request",
         "prompt": "Review the selected pull request and propose changes.",
-        "requiredAgentPlugins": ["github-pr-review"],
+        "requiredAgentPluginReferences": ["github-pr-review"],
         "requiredMcpServers": ["github"]
       }
     ],
@@ -590,33 +607,33 @@ This DOM-island contract avoids React shared-instance problems in static builds 
 
 **Reserved future runtime: sandboxed iframe.** The manifest reserves `browser.entry` (§11.1) for a future iframe runtime intended for untrusted third-party extensions (e.g., a community marketplace). The iframe sandbox would be `sandbox="allow-scripts allow-forms allow-downloads"` with no `allow-same-origin`, communicating with the parent through a postMessage RPC bridge that exposes the same context API. This is not implemented in MVP; declaring it now keeps the option open without committing implementation cost today.
 
-### 12.5 `agentPlugins`
+### 12.5 `agentPluginReferences`
 
-Maps to OpenHands SDK `PluginSource` values. Fields: `id`, `source` (package-relative path, GitHub shorthand, Git URL, or absolute path for dev mode), `ref` (optional branch/tag/commit), `repoPath` (optional subdirectory for remote git/GitHub sources), `autoInclude` (`manual` | `enabled` | `always`; default `manual`).
+Optional references from a Canvas Extension to separate reusable agent plugins. They map to Agent Server `PluginSource` values at conversation launch time; they are not Canvas Extensions, are not managed by the Extensions page as standalone artifacts, and should remain installable through the portable agent-artifact path when used on their own. Fields: `id`, `source` (package-relative path, installed-plugin ID/source, GitHub shorthand, Git URL, or absolute path for dev mode), `ref` (optional branch/tag/commit), `repoPath` (optional subdirectory for remote git/GitHub sources), `autoInclude` (`manual` | `enabled` | `always`; default `manual`).
 
 Resolution:
 
 - Package-relative paths are converted by the Extension Host to absolute paths inside the installed npm package.
-- Remote sources pass through as SDK `PluginSource`.
+- Remote sources pass through as Agent Server `PluginSource`.
 - Local paths are allowed only when explicitly installed with `--dev` or through `agent-canvas install <path>`.
-- `repoPath` maps to SDK `repo_path` and must be a relative path with no traversal. For package-relative/local sources, resolve `source` directly to the SDK plugin root and omit `repo_path`; local sources should not rely on `repo_path`.
-- The resolved plugin root must contain the SDK plugin package shape (`.plugin/plugin.json` or `.claude-plugin/plugin.json`, plus optional `skills/`, `hooks/`, `.mcp.json`, `agents/`, and `commands/`).
+- `repoPath` maps to `PluginSource.repo_path` and must be a relative path with no traversal. For package-relative/local sources, resolve `source` directly to the plugin root and omit `repo_path`; local sources should not rely on `repo_path`.
+- The resolved plugin root must contain a supported portable agent plugin package shape (`.plugin/plugin.json` or `.claude-plugin/plugin.json`, plus optional `skills/`, `hooks/`, `.mcp.json`, `agents/`, and `commands/`).
 
 The current frontend `PluginSpec.parameters` field is collected by `/launch` but `buildConfiguredConversationSettings()` sends only `source`, `ref`, and `repo_path` in the create-conversation payload ([src/api/agent-server-adapter.ts](src/api/agent-server-adapter.ts)). MVP extension behavior must not depend on arbitrary plugin parameters.
 
-**ACP constraint.** SDK plugins can merge skills, MCP config, hooks, and plugin agents before agent initialization. MCP config and other non-ACP-compatible fields can cause `ACPAgent` initialization to fail. MVP should skip `agentPlugins` for ACP runtimes unless the SDK smoke proves a prompt/skills-only plugin is accepted; extension context suffixes remain the compatible path for ACP.
+**ACP constraint.** Portable agent plugins can merge skills, MCP config, hooks, and plugin agents before agent initialization. MCP config and other non-ACP-compatible fields can cause `ACPAgent` initialization to fail. MVP should skip `agentPluginReferences` for ACP runtimes unless the plugin-reference smoke proves a prompt/skills-only plugin is accepted; extension context suffixes remain the compatible path for ACP.
 
 ### 12.6 `mcpServers`
 
 Extensions provide MCP templates, never silent installs. The UI shows required MCPs before launch and reuses the existing `InstallServerModal` pattern.
 
-**ACP constraint.** [src/routes/mcp.tsx](src/routes/mcp.tsx) currently disables MCP management while an ACP agent is active because the SDK rejects `mcp_config` on `ACPAgent` init. Extension MCP contributions inherit this guard.
+**ACP constraint.** [src/routes/mcp.tsx](src/routes/mcp.tsx) currently disables MCP management while an ACP agent is active because the Agent Server rejects `mcp_config` on `ACPAgent` init. Extension MCP contributions inherit this guard.
 
 **Current catalog shape.** The MCP marketplace now imports `IntegrationCatalogEntry` from `@openhands/extensions/integrations`, not the old `mcps` export. Extension MCP templates should either use the same `IntegrationTransport` vocabulary or provide an adapter that can project templates into the existing MCP install modal without reintroducing a parallel catalog model. The current install flow can save required secrets through the existing secrets-aware MCP form; extension templates should reuse that path rather than inventing separate secret persistence.
 
 ### 12.7 `launchTemplates`
 
-Reusable launch presets shown on home, extension pages, or automation setup. May reference required MCP IDs, required agent plugin IDs, optional context blocks, initial prompt text, and workspace requirements.
+Reusable launch presets shown on home, extension pages, or automation setup. May reference required MCP IDs, required agent plugin reference IDs, optional context blocks, initial prompt text, and workspace requirements.
 
 ### 12.8 `conversationContext`
 
@@ -853,18 +870,25 @@ export interface AgentCanvasColorThemeDefinition {
 }
 
 export type InstallableArtifactKind =
-  | "extension"
-  | "sdk-plugin"
+  | "canvas-extension"
+  | "agent-plugin"
   | "skill"
   | "mcp-template";
 
-export interface InstallableArtifactRegistryEntry {
+export interface DetectedInstallableArtifact {
   id: string;
   kind: InstallableArtifactKind;
+  source: string;
+  diagnostics: ExtensionDiagnostic[];
+}
+
+export interface CanvasExtensionRegistryEntry {
+  id: string;
+  kind: "canvas-extension";
   packageName: string;
   version: string;
   state: "enabled" | "disabled" | "installed" | "invalid";
-  manifest: AgentCanvasExtensionManifest | Record<string, unknown>;
+  manifest: AgentCanvasExtensionManifest;
   assetBaseUrl?: string;
   diagnostics: ExtensionDiagnostic[];
 }
@@ -882,22 +906,22 @@ Permission groups:
 - `ui.settingsPanels` — add settings panels only under the visible Extensions header after built-in settings.
 - `ui.conversationPanels` — add right-side conversation panels alongside Files, Browser, and Terminal.
 - `ui.toolVisualizers` — register custom action/observation renderers in the conversation event pipeline.
-- `agent.sdkPlugins` — include SDK plugins in conversation launches.
+- `agent.plugins` — reference separate portable agent plugins in conversation launches through Agent Server `PluginSource`.
 - `agent.context` — append extension context to system suffix.
 - `mcp.templates` — offer MCP server templates.
 - `secrets.declare` — request secret setup.
 - `network` — list of external origins the extension says it may contact (advisory; not strictly enforced by CSP in MVP).
 
-User consent shows: package name + version, extension ID, publisher, repository, enabled contribution types, required secrets, whether trusted same-origin browser code is included, whether SDK plugins or context blocks can affect new conversations, whether the contribution works only with a local Agent Server, and any new or expanded permissions on update.
+User consent shows: package name + version, extension ID, publisher, repository, enabled contribution types, required secrets, whether trusted same-origin browser code is included, whether agent plugin references or context blocks can affect new conversations, whether the contribution works only with a local Agent Server, and any new or expanded permissions on update.
 
 ### 15.1 Extension States
 
-Every artifact in the registry has exactly one persisted state:
+Every Canvas Extension in the registry has exactly one persisted state:
 
 | State | Active by default? | Typical entry point |
 |---|---|---|
 | `enabled` | Yes | Consent flow at install, or `agent-canvas enable <id>` |
-| `disabled` | No | `agent-canvas disable <id>`, install with `--no-enable`, or a permission-expanding update that drops the artifact back to manual re-approval |
+| `disabled` | No | `agent-canvas disable <id>`, install with `--no-enable`, or a permission-expanding update that drops the extension back to manual re-approval |
 | `installed` | No | Installed but never enabled |
 | `invalid` | No | Manifest failed validation; `diagnostics[]` on the entry explains why |
 
@@ -920,7 +944,7 @@ Extension lifecycle behavior is gated by a launcher-issued capability rather tha
 - Enable/disable from the Extensions page calls the host enable/disable routes in §17, which mutate `config.json` through the shared `extension-manager`. The frontend then invalidates the registry query so the new state reflects immediately — the same persist-then-invalidate pattern Canvas already uses for LLM profiles, not a separate live store.
 - Newly installed extensions are discovered by re-reading the install store on each registry request and refetching/invalidating the registry query (on the Extensions page, on a manual rescan action, and on the dev-watch cache-bust signal). Filesystem watching of the store is an optional enhancement, not a requirement; the baseline is re-read-on-request plus query invalidation.
 - Reconcilable contributions (left navigation, color themes, settings panels, conversation right panels, tool visualizers, and views) re-project from the refreshed registry and mount/unmount accordingly, reusing the dev-watch remount path.
-- Non-reconcilable contributions are unchanged: SDK plugins and context suffix apply only at conversation creation, so enabling or disabling them mid-session affects future conversations only.
+- Non-reconcilable contributions are unchanged: agent plugin references and context suffix apply only at conversation creation, so enabling or disabling them mid-session affects future conversations only.
 - Newly discovered extensions arrive `installed`/`disabled` and are never auto-enabled by discovery; enabling from the Extensions page is the explicit consent action. Permission-expanding updates still drop to `disabled` with a needs-review diagnostic.
 
 **Residual risk on the dev tier.** The live routes are same-origin, so an already-enabled extension on the dev stack can in principle call `/enable` for another *installed* extension — enabled browser code shares Canvas's origin and session (§19). This is bounded and accepted for a dev-only tier: the routes exist only under `liveExtensionManagement`; the caller is already enabled, hence already trusted; and install/update/remove stay CLI-only, so no new code can be introduced — only a package the user already placed on disk can be flipped. Packaged, Docker, and static runs do not expose the routes at all. We therefore do not claim the live tier is a hard consent boundary against already-trusted extension code; the boundary is the dev-only gate plus CLI-only install.
@@ -945,17 +969,17 @@ Compatibility:
 
 - Browser views and extension settings UI: `canvas-local`.
 - Context blocks: any runtime that accepts `system_message_suffix`.
-- Remote SDK plugin sources: any runtime that accepts `plugins`.
-- Package-relative / local SDK plugin paths: `agent-server-local` only.
+- Remote agent plugin sources: any runtime that accepts `plugins`.
+- Package-relative / local agent plugin paths: `agent-server-local` only.
 - MCP templates: where existing MCP settings work (ACP inherits the existing guard).
 - Secrets: where the active backend's secrets service accepts them.
-- ACP runtimes: extension context is allowed; extension MCP templates remain guarded by the existing MCP route; extension SDK plugins are disabled until a smoke test proves the specific plugin contribution does not inject ACP-incompatible MCP, hook, tool, or agent-definition state.
+- ACP runtimes: extension context is allowed; extension MCP templates remain guarded by the existing MCP route; agent plugin references contributed by extensions are disabled until a smoke test proves the specific plugin does not inject ACP-incompatible MCP, hook, tool, or agent-definition state.
 
 Incompatible contributions are skipped with a disabled reason shown before launch. Local filesystem paths are never sent to remote/cloud runtimes.
 
 ### 16.1 Local-filesystem detection
 
-`backend.kind === "local"` is **not sufficient** — a local-protocol backend can point at a remote host. The launcher will issue an explicit **`localInstallStoreReadable` capability flag** to the frontend on startup. The flag is true only when the Agent Server process was started by this same `agent-canvas` invocation and shares the local filesystem with `~/.openhands/agent-canvas/installations/`. Without that flag, package-relative SDK plugin paths are disabled and the UI shows a disabled-reason chip on the affected launch template.
+`backend.kind === "local"` is **not sufficient** — a local-protocol backend can point at a remote host. The launcher will issue an explicit **`localInstallStoreReadable` capability flag** to the frontend on startup. The flag is true only when the Agent Server process was started by this same `agent-canvas` invocation and shares the local filesystem with `~/.openhands/agent-canvas/installations/`. Without that flag, package-relative agent plugin paths are disabled and the UI shows a disabled-reason chip on the affected launch template.
 
 ### 16.2 Runtime-location note
 
@@ -970,7 +994,7 @@ Only use extension-provided capabilities explicitly listed in this prompt or exp
 </AGENT_CANVAS_RUNTIME>
 ```
 
-Contains no secrets. Local absolute paths are included only when the runtime is local and the path is intentionally part of an SDK plugin source.
+Contains no secrets. Local absolute paths are included only when the runtime is local and the path is intentionally part of an agent plugin source.
 
 ## 17. API Routes
 
@@ -1011,7 +1035,7 @@ Registry response:
   "artifacts": [
     {
       "id": "acme.github",
-      "kind": "extension",
+      "kind": "canvas-extension",
       "packageName": "@acme/agent-canvas-github",
       "version": "0.1.0",
       "state": "enabled",
@@ -1029,24 +1053,24 @@ An extension contribution merge step runs before `buildStartConversationRequestW
 
 1. `useCreateConversation()` receives optional extension launch selections.
 2. `AgentServerConversationService.createConversation()` asks `CanvasExtensionsService.getLaunchContributions()` for globally enabled contributions (unless extensions are disabled).
-3. Merge selected/auto-included SDK plugin specs with existing `plugins`.
+3. Merge selected/auto-included agent plugin references with existing `plugins`.
 4. Merge selected extension context into the new `extensionSystemSuffix` adapter option.
 5. `agent-server-adapter.ts` appends extension context to `AgentContext.system_message_suffix`.
 6. Existing payload creation sends `plugins` and no new server-specific fields.
 
-Current-main payload constraint: Canvas now builds the SDK start request with top-level `agent_settings`, `workspace`, `confirmation_policy`, `initial_message`, `tool_module_qualnames`, optional `plugins`, and optional runtime fields such as `hook_config`, `agent_definitions`, `security_analyzer`, `tags`, and `secrets`. Do not reintroduce the older legacy `agent` payload shape and do not drop those existing top-level fields while merging extensions. Extension context belongs in `buildAgentContext()` / the resulting `agent_settings.agent_context.system_message_suffix`; extension SDK plugins belong in the same top-level `plugins` array already emitted by `buildConfiguredConversationSettings()`.
+Current-main payload constraint: Canvas now builds the Agent Server start request with top-level `agent_settings`, `workspace`, `confirmation_policy`, `initial_message`, `tool_module_qualnames`, optional `plugins`, and optional runtime fields such as `hook_config`, `agent_definitions`, `security_analyzer`, `tags`, and `secrets`. Do not reintroduce the older legacy `agent` payload shape and do not drop those existing top-level fields while merging extensions. Extension context belongs in `buildAgentContext()` / the resulting `agent_settings.agent_context.system_message_suffix`; agent plugin references contributed by extensions map into the same top-level `plugins` array already emitted by `buildConfiguredConversationSettings()`.
 
 Merge rules:
 
 - Explicit `plugins` from `/launch` come first.
-- Extension plugins follow in deterministic order: extension navigation order, then manifest order.
+- Agent plugin references contributed by extensions follow in deterministic order: extension navigation order, then manifest order.
 - Duplicate plugin sources are deduped by resolved `source/ref/repo_path` tuple.
 - Extension context is deduped by `extensionId/contextId`.
 - MCP templates are never auto-installed during conversation create.
 
 ## 19. Security Posture
 
-**Threats.** Malicious browser JS in npm packages. Arbitrary code via npm install scripts. Rapidly changing unreviewed dev folders. Extension UI reading same-origin Canvas state or calling same-origin routes. Prompt injection via extension context. SDK plugin hooks/MCP servers in the agent runtime. Path traversal via manifests. Social engineering via agent-mediated install proposals (future).
+**Threats.** Malicious browser JS in npm packages. Arbitrary code via npm install scripts. Rapidly changing unreviewed dev folders. Extension UI reading same-origin Canvas state or calling same-origin routes. Prompt injection via extension context. Portable agent plugin hooks/MCP servers in the agent runtime. Path traversal via manifests. Social engineering via agent-mediated install proposals (future).
 
 **Trust model for MVP browser code.** Inline `browser.module` code is same-origin trusted code. If enabled, it can exercise the same browser privileges as Canvas itself, including calling local Canvas/Agent Server routes when it has the required session credentials. The capability API is still valuable as the supported integration surface, but it is not a security boundary in MVP. The consent UI must say this plainly: enable browser-code extensions only from sources the user trusts.
 
@@ -1066,21 +1090,21 @@ Merge rules:
 
 ## 20. Operational Semantics
 
-**Install defaults.** Interactive CLI install validates, shows permissions, enables on confirmation. `--no-enable` installs disabled. `--yes` skips prompts but still fails closed on new permissions unless paired with an explicit non-interactive policy flag. Install scripts denied by default. Browser UI install is out of scope for MVP.
+**Install defaults.** Interactive Canvas Extension install validates, shows permissions, enables on confirmation. `--no-enable` installs disabled. `--yes` skips prompts but still fails closed on new permissions unless paired with an explicit non-interactive policy flag. Install scripts denied by default. Browser UI install is out of scope for MVP. Portable skill/plugin install shows the target `.agent` file and resulting diff before writing unless the user supplies an explicit non-interactive approval flag.
 
-**Update defaults.** Updates preserve enabled/disabled state only when the manifest ID is unchanged and permissions do not expand. If an update adds agent-affecting contributions, new secrets, broader network origins, or new write permissions, the artifact moves to `installed`/disabled until re-approval. Downgrades require explicit CLI input and are recorded in diagnostics.
+**Update defaults.** Canvas Extension updates preserve enabled/disabled state only when the manifest ID is unchanged and permissions do not expand. If an update adds agent-affecting contributions, new secrets, broader network origins, or new write permissions, the extension moves to `installed`/disabled until re-approval. Downgrades require explicit CLI input and are recorded in diagnostics. Portable skill/plugin updates follow `.agent` file diff/re-approval semantics and do not affect the Canvas Extension registry.
 
-**Uninstall defaults.** `agent-canvas remove <id>` disables and removes the package; extension settings are preserved by default; secrets are never deleted by default; MCP servers / skill settings previously installed via an extension are not removed silently. `--purge` removes local settings and cached package data. `--purge-secrets` is separate and explicit.
+**Uninstall defaults.** `agent-canvas remove <id>` disables and removes a Canvas Extension package; extension settings are preserved by default; secrets are never deleted by default; MCP servers / portable skill or plugin settings previously installed by user action are not removed silently. `--purge` removes local settings and cached package data. `--purge-secrets` is separate and explicit.
 
-**Collision handling.** Artifact IDs must be unique. Installing a package whose manifest ID already exists updates it if the package identity matches, otherwise fails with a collision diagnostic. Two enabled artifacts cannot contribute the same view route, launch template ID, or context block ID under the same namespace.
+**Collision handling.** Canvas Extension IDs must be unique. Installing a package whose manifest ID already exists updates it if the package identity matches, otherwise fails with a collision diagnostic. Two enabled extensions cannot contribute the same view route, launch template ID, or context block ID under the same namespace. Portable skill/plugin identity is handled by the `.agent` installer and should not collide with Canvas Extension IDs.
 
-**Failure handling.** Invalid manifest → `invalid` state with diagnostics. Missing `browser.module` → keep installed, disable affected UI contribution. Manifest declares the reserved `browser.entry` field → `invalid` state with a "reserved, not yet supported" diagnostic. Extension view error → host-level error boundary and cleanup around the DOM container, rest of Canvas stays alive. Incompatible SDK plugin source → skip with preflight warning. Missing required secret → setup action surfaced, dependent contribution withheld. Extension Host unavailable → Canvas loads in degraded mode with a banner.
+**Failure handling.** Invalid manifest → `invalid` state with diagnostics. Missing `browser.module` → keep installed, disable affected UI contribution. Manifest declares the reserved `browser.entry` field → `invalid` state with a "reserved, not yet supported" diagnostic. Extension view error → host-level error boundary and cleanup around the DOM container, rest of Canvas stays alive. Incompatible agent plugin source → skip with preflight warning. Missing required secret → setup action surfaced, dependent contribution withheld. Extension Host unavailable → Canvas loads in degraded mode with a banner.
 
 **Restart-bounded lifecycle (default).** In packaged, Docker, and static modes extension enablement is loaded when the Canvas process starts. CLI install/enable/disable/update/remove commands mutate persisted state for the next run; the running app does not watch the store or guarantee live unmount/revocation. The read-only Extensions page may show the current process state and diagnostics, but it does not attempt to reconcile out-of-band CLI changes until restart.
 
-**Live management lifecycle (development source stack).** When `liveExtensionManagement` is true (§15.2), the running app reconciles enable/disable and newly installed extensions without a restart. Enable/disable mutate `config.json` through the shared `extension-manager` and the frontend re-reads the registry; newly installed extensions are discovered on the next registry read or rescan. Reconcilable UI contributions mount/unmount from the refreshed registry; SDK plugin and context contributions still apply only to conversations created after the change. Install, update, and remove remain CLI verbs in this mode as well. This tier exists for trusted local development, including the agent-authored-extension loop, and is never enabled for packaged or Docker runs.
+**Live management lifecycle (development source stack).** When `liveExtensionManagement` is true (§15.2), the running app reconciles enable/disable and newly installed extensions without a restart. Enable/disable mutate `config.json` through the shared `extension-manager` and the frontend re-reads the registry; newly installed extensions are discovered on the next registry read or rescan. Reconcilable UI contributions mount/unmount from the refreshed registry; agent plugin and context contributions still apply only to conversations created after the change. Install, update, and remove remain CLI verbs in this mode as well. This tier exists for trusted local development, including the agent-authored-extension loop, and is never enabled for packaged or Docker runs.
 
-**Package inspection rule.** The Extension Host never imports extension Node code to inspect an artifact. It reads only static files: `package.json`, `agent-canvas.extension.json`, `.plugin/plugin.json`, `SKILL.md`, and static asset paths. Extension-authored code runs only as the inline browser module loaded into the Canvas frontend, or as SDK/MCP/runtime code, in both cases only after explicit consent.
+**Package inspection rule.** The Extension Host never imports extension Node code to inspect a Canvas Extension. It reads only static files: `package.json`, `agent-canvas.extension.json`, and static asset paths. The CLI artifact detector may also read portable plugin/skill markers such as `.plugin/plugin.json` and `SKILL.md` before dispatching to the agent-artifact installer. Extension-authored code runs only as the inline browser module loaded into the Canvas frontend, or as agent/MCP/runtime configuration selected at conversation launch, in both cases only after explicit consent.
 
 ## 21. Development Mode Authoring
 
@@ -1114,7 +1138,7 @@ Each entry records absolute source path, manifest path, registration timestamp, 
 - Dispose and remount only the affected extension view when its module changes; avoid reloading the parent Canvas app.
 - Surface manifest/build errors in the Extensions page and extension view.
 - The extension authoring project owns its build/watch command. Canvas watches declared output files and source manifests; it never runs package install scripts automatically and must ask before any package-manager command.
-- Never hot-reload SDK plugin / tool state into an already-running conversation; a new conversation is required for agent-side contribution changes.
+- Never hot-reload agent plugin / tool state into an already-running conversation; a new conversation is required for agent-side contribution changes.
 
 ### Safety rules
 
@@ -1146,17 +1170,17 @@ This is not part of PR 0 or PR 1. It becomes feasible after the local install st
 
 ## 23. Upstream Dependencies
 
-MVP requires **zero broad Agent Server changes**. Current `software-agent-sdk` exposes the needed request shape: `StartConversationRequest.plugins` is `list[PluginSource] | None`, and `PluginSource` carries `source`, optional `ref`, and optional `repo_path`. The SDK loads plugins lazily when a local conversation first runs, then merges plugin skills, MCP config, hooks, and plugin agents into the agent. This is enough for Canvas to forward descriptors; it is also why ACP and filesystem-local preflight matter.
+MVP requires **zero broad Agent Server changes**. Current Agent Server request shape exposes `StartConversationRequest.plugins` as `list[PluginSource] | None`, and `PluginSource` carries `source`, optional `ref`, and optional `repo_path`. The Agent Server loads plugins lazily when a local conversation first runs, then merges plugin skills, MCP config, hooks, and plugin agents into the agent. This is enough for Canvas to forward descriptors; it is also why ACP and filesystem-local preflight matter.
 
 Three things to confirm against the current pinned Agent Server version (`config/defaults.json` currently pins `agentServer` to `1.27.0`) before PR 4:
 
-1. Agent Server create-conversation accepts `plugins` in the shape of SDK `PluginSource`.
+1. Agent Server create-conversation accepts `plugins` in the shape of `PluginSource`.
 2. `AgentContext.system_message_suffix` remains accepted for both `Agent` and `ACPAgent`.
-3. SDK plugin local-path loading works from the host path Canvas passes.
+3. Agent plugin local-path loading works from the host path Canvas passes.
 
-Current frontend behavior to preserve: `shouldLoadPublicSkills()` now defaults to `true`; set `VITE_LOAD_PUBLIC_SKILLS=false` to opt out. Extension-contributed SDK plugins and context blocks still must not depend on public marketplace skills being present, because deployments and users can disable them.
+Current frontend behavior to preserve: `shouldLoadPublicSkills()` now defaults to `true`; set `VITE_LOAD_PUBLIC_SKILLS=false` to opt out. Agent plugin references and context blocks contributed by Canvas Extensions still must not depend on public marketplace skills being present, because deployments and users can disable them.
 
-Nice-to-have, not blockers: resolved plugin refs in conversation info for audit; structured plugin load diagnostics as conversation events; `PluginSource.parameters` if the SDK decides to support it; a validation endpoint for plugin manifests; server-owned SDK plugin management APIs.
+Nice-to-have, not blockers: resolved agent plugin refs in conversation info for audit; structured plugin load diagnostics as conversation events; `PluginSource.parameters` if the Agent Server decides to support it; a validation endpoint for plugin manifests; server-owned plugin management APIs.
 
 Out of scope upstream: a generic server-side Canvas extension loader; server-side npm package installation; arbitrary frontend hook execution in the Agent Server; tool-override APIs for third-party Canvas packages.
 
@@ -1185,7 +1209,7 @@ Each extension row/card shows: display name, package name, version; state; contr
 
 ### Launch UX
 
-For launch templates: show required MCPs; show SDK plugins to be included; show context blocks to be appended; require confirmation on first use of any agent-affecting extension.
+For launch templates: show required MCPs; show agent plugin references to be included; show context blocks to be appended; require confirmation on first use of any agent-affecting extension.
 
 ### Primary navigation UX
 
@@ -1215,7 +1239,7 @@ The multi-agent, checkable execution checklist for this plan lives in [Extension
 
 Files: `docs/ExtensionsSystemRFC.md`, `src/canvas-extensions/types.ts`, `src/canvas-extensions/manifest-schema.ts`, `src/canvas-extensions/manifest-validation.ts`, `src/canvas-extensions/artifact-detection.ts`, `src/themes/color-themes.ts`, `__tests__/canvas-extensions/manifest-validation.test.ts`.
 
-Deliverables: shared manifest and registry types; generic installable artifact kind definitions; contribution types for views, left navigation, color themes, settings panels, conversation right panels, tool visualizers, launch templates, SDK plugins, MCP templates, and context; artifact detection rules for extension packages, SDK plugins, skills, and placeholder MCP templates; schema-version constant; manifest validation helpers; storage-path helper for `~/.openhands/agent-canvas/installations`; fixtures for valid/invalid manifests, including a theme-only extension; `@openhands/agent-canvas/canvas-extensions` subpath export plan plus a visualizer export plan aligned with PR #1277 or its successor; release packaging checklist. No Extension Host, no frontend UI, no agent contribution merging.
+Deliverables: shared manifest and registry types; generic installable artifact kind definitions (`canvas-extension`, `agent-plugin`, `skill`, placeholder `mcp-template`); contribution types for views, left navigation, color themes, settings panels, conversation right panels, tool visualizers, launch templates, agent plugin references, MCP templates, and context; artifact detection rules for Canvas Extension packages, portable agent plugins, portable skills, and placeholder MCP templates; schema-version constant; manifest validation helpers; storage-path helper for `~/.openhands/agent-canvas/installations`; fixtures for valid/invalid manifests, including a theme-only extension; `@openhands/agent-canvas/canvas-extensions` subpath export plan plus a visualizer export plan aligned with PR #1277 or its successor; release packaging checklist. No Extension Host, no frontend UI, no agent contribution merging.
 
 **Iframe-runtime forward compatibility (minimal, PR 0 scope):** the manifest schema and TypeScript contract accept both `browser.module` (active) and `browser.entry` (reserved). The validator recognizes `browser.entry` as syntactically valid but emits a `reserved-not-yet-supported` diagnostic so authors can't accidentally ship extensions that depend on an unimplemented runtime. The API contract in `src/canvas-extensions/types.ts` is defined async-only, which is the only change needed so that a future iframe runtime can satisfy the same interface over postMessage without an API redesign. No iframe host, no postMessage bridge, no asset-mode switching, and no parallel runtime code lands here — that work is deferred to a post-MVP PR triggered by one of the trust-boundary conditions in §27 Decision 11. The total PR 0 cost of keeping the option open is a handful of schema fields, one validation rule, one fixture, and a short authoring note in the type comments.
 
@@ -1225,7 +1249,7 @@ Deliverables: shared manifest and registry types; generic installable artifact k
 
 Files: `bin/agent-canvas.mjs`, `scripts/dev-safe.mjs`, `scripts/dev-with-automation.mjs`, `scripts/extension-host.mjs`, `scripts/extension-manager.mjs`, extension config helper, tests under `__tests__/canvas-extensions/`.
 
-Deliverables: generic install/manage CLI parsing; `install/list/enable/disable/remove/update/doctor` dispatched before stack startup, before `--public` / `--frontend-only` / `--backend-only` stack validation, before the static `build/` existence check, and before importing stack launcher scripts; install store under `~/.openhands/agent-canvas/installations/`; artifact detection for all kinds with independent install/enable support limited to Canvas Extension manifests; typed unsupported diagnostics for standalone SDK plugins, skills, and MCP templates; npm install with `--ignore-scripts`; manifest validation; Extension Host startup; ingress routes for `/api/canvas/canvas-extensions/*` and `/canvas-extension-assets/*` across all launch modes (Vite dev proxy, automation ingress, static serving, packaged CLI, plus the current frontend-only/backend-only partial-stack modes); host `enable`/`disable`/`rescan` routes registered only when `liveExtensionManagement` is true; dev extension registration store and `--dev` registration; launcher-issued `localInstallStoreReadable` and `liveExtensionManagement` capability flags (the latter derived from the Vite-vs-static frontend kind in `scripts/runtime-services-info.mjs`); example package fixture using SDK plugin and context contributions; `npm pack --dry-run` or packed-tarball smoke for the global CLI path.
+Deliverables: generic install/manage CLI parsing; `install/list/enable/disable/remove/update/doctor` dispatched before stack startup, before `--public` / `--frontend-only` / `--backend-only` stack validation, before the static `build/` existence check, and before importing stack launcher scripts; Canvas Extension install store under `~/.openhands/agent-canvas/installations/`; agent-artifact install path for portable skills/plugins that writes `.agent` files and never projects those artifacts into the Canvas Extension registry; artifact detection for all kinds with install support for Canvas Extensions, portable skills, and portable plugins, while MCP templates remain typed unsupported placeholders; npm install with `--ignore-scripts` for Canvas Extension packages; manifest validation; Extension Host startup; ingress routes for `/api/canvas/canvas-extensions/*` and `/canvas-extension-assets/*` across all launch modes (Vite dev proxy, automation ingress, static serving, packaged CLI, plus the current frontend-only/backend-only partial-stack modes); host `enable`/`disable`/`rescan` routes registered only when `liveExtensionManagement` is true; dev extension registration store and `--dev` registration; launcher-issued `localInstallStoreReadable` and `liveExtensionManagement` capability flags (the latter derived from the Vite-vs-static frontend kind in `scripts/runtime-services-info.mjs`); example Canvas Extension package fixture using context contributions, with agent plugin references tested later as optional agent-runtime contributions; `.agent` install smoke for one portable skill and one portable plugin; `npm pack --dry-run` or packed-tarball smoke for the global CLI path.
 
 ### PR 2 — Frontend inventory UI
 
@@ -1261,7 +1285,7 @@ Deliverables: `--dev` install and `dev-extension` subcommands; dev registration 
 
 Files: `src/api/canvas-extensions-service.ts`, `src/api/conversation-service/agent-server-conversation-service.api.ts`, `src/api/agent-server-adapter.ts`, `src/hooks/mutation/use-create-conversation.ts`, launch/home components.
 
-Deliverables: enabled extension SDK plugin specs merge into new conversation payloads; selected extension context blocks append to system suffix via the new `extensionSystemSuffix` option; required MCP preflight UI; cloud/local disabled reasons gated on `localInstallStoreReadable`; tests for payload shape and merge order.
+Deliverables: optional agent plugin references contributed by enabled extensions merge into new conversation payloads as `PluginSource` entries; selected extension context blocks append to system suffix via the new `extensionSystemSuffix` option; required MCP preflight UI; cloud/local disabled reasons gated on `localInstallStoreReadable`; tests for payload shape and merge order.
 
 ### PR 5 — Hardening and polish
 
@@ -1275,7 +1299,7 @@ Permission consent modal; secret setup flow; `doctor` command with actionable di
 
 **Component:** Extensions page states under Customize in both the read-only (capability false) and live-management (capability true, with enable/disable toggles and rescan) presentations; permission display; CLI/restart guidance; browser-module view loading/error; extension color theme appears in Settings > Application > Color Theme and can be selected; settings panel placement under the visible Extensions header; conversation right-panel tab rendering/error boundaries; MCP required preflight; incompatible runtime warning; dev and needs-review badges.
 
-**E2E snapshots:** Extensions page empty state under Customize; enabled extension with one view; invalid extension diagnostics; extension color theme option in Settings > Application; settings panel under Extensions header; conversation right panel beside Files/Browser/Terminal; launch template requiring MCP; launch preflight with local-path SDK plugin disabled on remote backend; dev extension view remount after file change; future: agent-mediated install proposal flow.
+**E2E snapshots:** Extensions page empty state under Customize; enabled extension with one view; invalid extension diagnostics; extension color theme option in Settings > Application; settings panel under Extensions header; conversation right panel beside Files/Browser/Terminal; launch template requiring MCP; launch preflight with local-path agent plugin disabled on remote backend; dev extension view remount after file change; future: agent-mediated install proposal flow.
 
 **Live E2E:** not required for MVP. If added later, follow existing live E2E rules under `tests/e2e/live/`.
 
@@ -1297,13 +1321,13 @@ These were open questions in the earlier draft. Decisions for the RFC:
 | 4 | `src/installations/` vs `src/canvas-extensions/` directory split? | **Single `src/canvas-extensions/` directory** until a real consumer requires the split. |
 | 5 | API route prefix consistency? | **`/api/canvas/canvas-extensions/*`** for local Canvas extension runtime APIs; `/canvas-extension-assets/*` reserved for asset serving. Browser management routes are deferred. |
 | 6 | Empty `src/addons/` directory on `main`? | **No longer present.** PR 0 should avoid reviving the old `addons` namespace and use `src/canvas-extensions/`. |
-| 7 | Should the first MVP independently install standalone SDK plugins, standalone skills, or MCP templates? | **No.** Detect them and return explicit unsupported diagnostics; require a Canvas Extension wrapper for MVP. |
-| 8 | Should package-relative SDK plugin paths be MVP? | **Yes, but only when `localInstallStoreReadable` is true** and the pinned Agent Server smoke passes. Remote/cloud runtimes get disabled reasons rather than local paths. |
+| 7 | Should the first MVP independently install standalone skills/plugins, or only Canvas Extensions? | **Install all three artifact classes, but keep their destinations separate.** Canvas Extensions install into the Canvas Extension store and can contribute Canvas UI/runtime metadata. Portable skills/plugins install into `.agent` files through the agent-artifact installer and never become Canvas Extensions. MCP-template install remains deferred. |
+| 8 | Should package-relative agent plugin paths be MVP? | **Yes, but only when `localInstallStoreReadable` is true** and the pinned Agent Server smoke passes. Remote/cloud runtimes get disabled reasons rather than local paths. |
 | 9 | Should extension context be global per extension, selected per launch template, or both? | **Both.** Context blocks use `autoInclude` for global/default behavior and launch templates can require/select specific context IDs. |
-| 10 | Should repo-provided SDK plugins/skills ever be surfaced automatically as Canvas extensions? | **No automatic surfacing.** Repository content remains an Agent Server/runtime concern unless the user explicitly installs/registers a Canvas Extension path. |
+| 10 | Should repo-provided plugins/skills ever be surfaced automatically as Canvas Extensions? | **No automatic surfacing.** Repository content remains an agent runtime concern unless the user explicitly installs/registers a Canvas Extension path. Portable skills/plugins can be installed through the CLI into `.agent` files, but that does not make them Canvas UI extensions. |
 | 11 | What triggers the reserved iframe runtime? | **A trust boundary requirement:** community marketplace distribution, an untrusted third-party publisher tier, or a concrete need for browser-enforced isolation/CSP. |
 | 12 | Should agent-proposed dev extension registration ship with dev watch mode? | **No.** Defer to the broader post-MVP agent-mediated install proposal flow. |
-| 13 | Which create-conversation payload shape should extensions target? | **Current SDK settings shape:** top-level `agent_settings` plus optional top-level `plugins`; do not reintroduce legacy `agent` payloads. |
+| 13 | Which create-conversation payload shape should extensions target? | **Current Agent Server settings shape:** top-level `agent_settings` plus optional top-level `plugins`; do not reintroduce legacy `agent` payloads. |
 | 14 | What route-less and registry-backed UI surfaces are in scope? | **Color themes, tool visualizers, settings panels, and conversation right panels.** They map to concrete existing product regions and avoid arbitrary app-root mounting. Color themes are registry data, not arbitrary JavaScript placement. |
 | 15 | Should generic conversation slots ship before these surfaces? | **No.** Header/footer/badge/sidebar slots remain deferred until a workflow cannot be handled by a right panel or tool visualizer. |
 | 16 | Should the running app ever change extension state without a restart? | **Only on the development source stack.** A launcher-issued `liveExtensionManagement` capability (true only for the Vite-served `npm run dev` / `dev:minimal` stack) enables live enable/disable and discovery of newly installed extensions, so an in-Canvas agent can author an extension and the user can enable it in the same session. Packaged global installs, Docker, and static-served builds stay restart-bounded. Install, update, and remove remain CLI-only in all modes. The capability never relaxes consent, permission re-approval, or the agent-runtime boundary. See §15.2. |
@@ -1317,7 +1341,7 @@ The single list of decisions that would benefit from product/engineering directi
 3. **Mobile.** Is mobile support for conversation right panels required in the first proof, or can small viewports show a disabled/unsupported reason until a mobile design lands?
 4. **Provenance.** What provenance bar is required before any non-first-party/community distribution: npm integrity, signatures, first-party allowlist, enterprise policy, or a combination? This gates a public marketplace.
 5. **Catalog.** Should the `@openhands/extensions` catalog eventually become a first-party Canvas Extension package, or remain a plain dependency for built-in catalogs?
-6. **Graduation.** What is the graduation path for standalone SDK plugin, standalone skill, and MCP-template installers after the extension-package MVP proves out?
+6. **Agent artifact UX.** What exact `.agent` target selection UX should the first skill/plugin installer use for user-vs-project scope, and how should it present diffs before writing files?
 
 ## 29. Recommended MVP Cut
 
@@ -1334,7 +1358,7 @@ The build sequence for the MVP scope in §1. (What ships and what defers is defi
 9. Extension tool visualizers.
 10. Dev-mode extension registration / watch / reload.
 11. Capability-gated live enable/disable and new-extension discovery on the `npm run dev` source stack (`liveExtensionManagement`); restart-bounded everywhere else.
-12. SDK plugin contribution merge for local conversations.
+12. Optional agent plugin reference merge for local conversations.
 13. Context contribution merge behind explicit permission.
 
 ## 30. Engineering FAQ
@@ -1343,7 +1367,7 @@ The build sequence for the MVP scope in §1. (What ships and what defers is defi
 
 **Q: What is a Canvas Extension, exactly?**
 
-A Canvas Extension is an Agent Canvas-specific package that extends the Canvas UI, UX, or local product behavior. It can add left navigation entries, settings panels, conversation right panels, custom tool visualizers, launch templates, SDK plugin descriptors, MCP templates, and system-context blocks. It is not the same thing as an OpenHands SDK plugin, a skill, an MCP server, or the existing `@openhands/extensions` catalog.
+A Canvas Extension is an Agent Canvas-specific package that extends the Canvas UI, UX, or local product behavior. It can add left navigation entries, settings panels, conversation right panels, custom tool visualizers, launch templates, optional references to separate portable agent plugins, MCP templates, and system-context blocks. It is not the same thing as a portable agent plugin, a skill, an MCP server, or the existing `@openhands/extensions` catalog.
 
 **Q: How is this different from the existing `@openhands/extensions` repo/package?**
 
@@ -1381,7 +1405,7 @@ Generic header/footer/sidebar/badge slots are deferred.
 
 **Q: Can a Canvas Extension just register a color theme?**
 
-Yes. Theme-only Canvas Extensions should be a first-class supported case because color themes are likely to be an early low-risk extension type. A theme-only package can contribute `colorThemes` and no view, settings panel, right panel, tool visualizer, SDK plugin, MCP template, or launch template. Once enabled, its themes appear in Settings > Application > Color Theme with built-in themes.
+Yes. Theme-only Canvas Extensions should be a first-class supported case because color themes are likely to be an early low-risk extension type. A theme-only package can contribute `colorThemes` and no view, settings panel, right panel, tool visualizer, agent plugin reference, MCP template, or launch template. Once enabled, its themes appear in Settings > Application > Color Theme with built-in themes.
 
 **Q: Are extension color themes arbitrary CSS?**
 
@@ -1429,7 +1453,7 @@ It keeps the manifest and runtime API compatible with a future sandboxed documen
 
 By default disable/revocation is restart-bounded. Users run CLI management commands while Canvas is stopped, then restart. On the next process start, disabled extensions do not enter the registry, do not render UI contributions, and do not contribute to future conversation launches. In packaged, Docker, and static modes the browser UI does not offer live disable/uninstall controls and does not promise immediate unmount after out-of-band CLI edits.
 
-On the development source stack (`liveExtensionManagement` true; see §15.2), disable is live: the Extensions page toggle mutates `config.json` and the refreshed registry unmounts reconcilable UI contributions (nav, themes, panels, visualizers, views) without a restart. Agent-side contributions are the exception — disabling an SDK plugin or context block stops it from being added to *future* conversations but cannot retract state already applied to a running conversation, so a new conversation is required. Uninstall/remove remains a CLI verb in this mode too.
+On the development source stack (`liveExtensionManagement` true; see §15.2), disable is live: the Extensions page toggle mutates `config.json` and the refreshed registry unmounts reconcilable UI contributions (nav, themes, panels, visualizers, views) without a restart. Agent-side contributions are the exception — disabling an agent plugin reference or context block stops it from being added to *future* conversations but cannot retract state already applied to a running conversation, so a new conversation is required. Uninstall/remove remains a CLI verb in this mode too.
 
 The process-level `--disable-extensions` kill switch still suppresses all extension loading for that run, in either tier.
 
@@ -1471,7 +1495,7 @@ MVP decision: the manifest declares metadata only and the browser module registe
 
 **Q: How are path traversal and package containment handled?**
 
-Manifest paths for browser modules, icons, SDK plugin roots, and other assets must resolve inside the installed package root. Any `..` traversal or absolute path from a normal installed package should be rejected. Dev-mode local paths are allowed only through explicit `--dev` registration.
+Manifest paths for browser modules, icons, package-relative agent plugin roots, and other assets must resolve inside the installed package root. Any `..` traversal or absolute path from a normal installed package should be rejected. Dev-mode local paths are allowed only through explicit `--dev` registration.
 
 **Q: What happens when permissions change on update?**
 
@@ -1491,15 +1515,15 @@ MVP recommendation: visualizers should receive narrow props and host helpers, bu
 
 **Q: Do Canvas Extensions load code into the Agent Server?**
 
-No. Canvas does not patch or load Canvas Extension code inside the Agent Server. Agent-side behavior is forwarded only through existing SDK-supported surfaces: `plugins`, MCP settings/templates, and `AgentContext.system_message_suffix`.
+No. Canvas does not patch or load Canvas Extension code inside the Agent Server. Agent-side behavior is forwarded only through existing Agent Server-supported surfaces: `plugins`, MCP settings/templates, and `AgentContext.system_message_suffix`.
 
 **Q: Which contributions affect conversation creation?**
 
-SDK plugin descriptors, selected MCP requirements/templates, launch templates, and context blocks can affect new conversation payloads. Pure UI contributions such as left nav, color themes, settings panels, right panels, and visualizers do not by themselves change the agent runtime.
+Agent plugin references, selected MCP requirements/templates, launch templates, and context blocks can affect new conversation payloads. Pure UI contributions such as left nav, color themes, settings panels, right panels, and visualizers do not by themselves change the agent runtime.
 
-**Q: How do local-path SDK plugin contributions work with remote/cloud/ACP runtimes?**
+**Q: How do local-path agent plugin references work with remote/cloud/ACP runtimes?**
 
-Package-relative or local SDK plugin paths are allowed only when `localInstallStoreReadable=true`, meaning the Agent Server process was launched by the same local Canvas stack and can read the install store. Remote/cloud runtimes get disabled reasons instead of local paths. ACP runtimes should skip SDK plugin contributions unless a smoke test proves the exact plugin shape is compatible.
+Package-relative or local agent plugin paths are allowed only when `localInstallStoreReadable=true`, meaning the Agent Server process was launched by the same local Canvas stack and can read the install store. Remote/cloud runtimes get disabled reasons instead of local paths. ACP runtimes should skip agent plugin references unless a smoke test proves the exact plugin shape is compatible.
 
 **Q: What is the audit trail for extension contributions?**
 
@@ -1507,13 +1531,13 @@ MVP should include extension IDs and contribution IDs in launch preflight UI and
 
 **Q: What if an extension is disabled after a conversation starts?**
 
-After restart, disabling stops future UI contributions and future conversation launches from using the extension. Existing conversations may already contain context suffixes or SDK plugin behavior from creation time; disabling cannot reliably remove already-applied agent runtime state from an active conversation.
+After restart, disabling stops future UI contributions and future conversation launches from using the extension. Existing conversations may already contain context suffixes or agent plugin behavior from creation time; disabling cannot reliably remove already-applied agent runtime state from an active conversation.
 
 ### 30.8 Testing And Proof
 
 **Q: What is the smallest useful fixture extension?**
 
-`hello.canvas` should prove the full vertical path: install, registry, Extensions page row/status, left nav entry, browser-module view, color theme, settings panel, conversation right panel, one tool visualizer, launch preflight/context contribution, SDK plugin compatibility path, and dev remount.
+`hello.canvas` should prove the full vertical path: install, registry, Extensions page row/status, left nav entry, browser-module view, color theme, settings panel, conversation right panel, one tool visualizer, launch preflight/context contribution, and dev remount. Agent plugin reference compatibility is a separate optional conversation-contribution check because plugins are not Canvas Extensions.
 
 **Q: Should all UI surfaces land in one PR?**
 

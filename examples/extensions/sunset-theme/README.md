@@ -1,7 +1,7 @@
 # Sunset Theme (example Canvas Extension)
 
 A **theme-only** Canvas Extension. It contributes one color theme — "Sunset" — and
-nothing else: no view, settings panel, right panel, tool visualizer, SDK plugin, or
+nothing else: no view, settings panel, right panel, tool visualizer, agent plugin reference, or
 browser module.
 
 This demonstrates the first-class theme-only case from RFC §12.2 / §13: a package that
