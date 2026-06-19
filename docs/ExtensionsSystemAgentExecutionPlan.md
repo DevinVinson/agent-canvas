@@ -10,6 +10,15 @@ Current repo baseline: merged through `upstream/main` at `40844533`. This checkl
 
 This is the checklist an implementation agent should follow. The RFC is the product and architecture contract; the PoC plan explains the shape of the proof. This file turns both into task-sized work.
 
+Planning branch and implementation branch policy:
+
+- Treat `dv/extensions-poc-v1` as the planning branch. It contains the RFC, PoC plan, execution checklist, and example-extension planning artifacts. Do not add implementation commits to that branch unless the task is explicitly another planning/doc update.
+- Start implementation from a fresh pull of current `upstream/main`, not from the planning branch. Use one branch per PR slice, for example `dv/extensions-g0-contracts`, `dv/extensions-g1-cli-host`, and so on.
+- If the planning branch has not landed on `main` yet, read these planning artifacts from `dv/extensions-poc-v1` (for example with `git show dv/extensions-poc-v1:docs/ExtensionsSystemAgentExecutionPlan.md`) or from a separate worktree. Do not merge the planning branch into an implementation branch just to access the docs.
+- Keep commit history clean by landing one gate or narrow task group per PR. If a later gate needs a type or helper from an earlier gate, branch from the merged earlier PR or rebase onto current `upstream/main` after it lands.
+- Reference this plan and `dv/extensions-poc-v1` in each implementation PR so reviewers can connect code slices back to the source architecture without mixing planning commits into implementation history.
+- Before opening an implementation PR, verify the branch diff contains code/tests for that slice only, not unrelated planning-doc churn from `dv/extensions-poc-v1`.
+
 Rules for every agent:
 
 - Read this file, the RFC, the PoC plan, and `AGENTS.md` before editing.
