@@ -184,6 +184,10 @@ export function Sidebar() {
     currentPath.startsWith("/skills") ||
     currentPath === "/plugins" ||
     currentPath === "/mcp";
+  const isAutomationsActive =
+    currentPath === "/automate" ||
+    currentPath === "/automations" ||
+    currentPath.startsWith("/automations/");
 
   const railBodyProps = {
     linkDisabled,
@@ -192,6 +196,7 @@ export function Sidebar() {
     onExpand: () => setCollapsed(false),
     showCollapsedExpandButton,
     isExtensionsActive,
+    isAutomationsActive,
     currentPath,
     activeBackendHealth,
     collapsedBackendPopoverOpen,

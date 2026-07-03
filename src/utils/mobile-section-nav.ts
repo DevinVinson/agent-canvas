@@ -3,6 +3,8 @@ import { I18nKey } from "#/i18n/declaration";
 const SETTINGS_PREFIX = "/settings";
 const CUSTOMIZE_HUB = "/customize";
 const EXTENSIONS_DETAIL_PATHS = ["/skills", "/mcp", "/plugins"] as const;
+const AUTOMATE_HUB = "/automate";
+const AUTOMATIONS_PREFIX = "/automations";
 
 export type MobileTopBarMode = "menu" | "back";
 
@@ -44,6 +46,21 @@ export function getMobileTopBarState(pathname: string): MobileTopBarState {
     };
   }
 
+  if (pathname === AUTOMATE_HUB) {
+    return { mode: "menu" };
+  }
+
+  if (
+    pathname === AUTOMATIONS_PREFIX ||
+    pathname.startsWith(`${AUTOMATIONS_PREFIX}/`)
+  ) {
+    return {
+      mode: "back",
+      backTo: AUTOMATE_HUB,
+      backLabelKey: I18nKey.SIDEBAR$AUTOMATIONS,
+    };
+  }
+
   return { mode: "menu" };
 }
 
@@ -53,5 +70,13 @@ export function isExtensionsSectionPath(pathname: string): boolean {
     EXTENSIONS_DETAIL_PATHS.some(
       (path) => pathname === path || pathname.startsWith(`${path}/`),
     )
+  );
+}
+
+export function isAutomationsSectionPath(pathname: string): boolean {
+  return (
+    pathname === AUTOMATE_HUB ||
+    pathname === AUTOMATIONS_PREFIX ||
+    pathname.startsWith(`${AUTOMATIONS_PREFIX}/`)
   );
 }

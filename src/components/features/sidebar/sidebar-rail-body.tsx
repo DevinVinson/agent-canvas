@@ -45,6 +45,7 @@ export interface SidebarRailBodyProps {
   onExpand: () => void;
   showCollapsedExpandButton: boolean;
   isExtensionsActive: boolean;
+  isAutomationsActive: boolean;
   currentPath: string;
   activeBackendHealth: { isConnected: boolean | null } | undefined;
   collapsedBackendPopoverOpen: boolean;
@@ -68,6 +69,7 @@ export function SidebarRailBody({
   onExpand,
   showCollapsedExpandButton,
   isExtensionsActive,
+  isAutomationsActive,
   currentPath,
   activeBackendHealth,
   collapsedBackendPopoverOpen,
@@ -203,11 +205,12 @@ export function SidebarRailBody({
           }
         />
         <SidebarNavLink
-          to="/automations"
+          to="/automate"
           label={t(I18nKey.SIDEBAR$AUTOMATIONS)}
           testId="sidebar-automations-link"
           disabled={linkDisabled}
           collapsed={collapsed}
+          forceActive={isAutomationsActive}
           icon={<AutomationsIcon width={ICON_SIZE} height={ICON_SIZE} />}
         />
       </nav>

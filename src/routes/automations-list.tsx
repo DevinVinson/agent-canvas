@@ -17,6 +17,7 @@ import { useActiveBackend } from "#/contexts/active-backend-context";
 import { SearchInput } from "#/components/features/automations/search-input";
 import { AutomationGroup } from "#/components/features/automations/automation-group";
 import { AutomationViewToggle } from "#/components/features/automations/automation-view-toggle";
+import { AutomationsNavigation } from "#/components/features/automations/automations-navigation";
 import {
   readStoredAutomationViewMode,
   writeStoredAutomationViewMode,
@@ -29,9 +30,9 @@ import { BackendNotConfigured } from "#/components/features/automations/backend-
 import { DeleteConfirmationModal } from "#/components/features/automations/delete-confirmation-modal";
 import { EditAutomationModal } from "#/components/features/automations/detail/edit-automation-modal";
 import { AddAutomationModal } from "#/components/features/automations/add-automation-modal";
-import { RecommendedAutomationsLauncher } from "#/components/features/automations/recommended-automations-launcher";
 import { BrandButton } from "#/components/features/settings/brand-button";
 import { useTracking } from "#/hooks/use-tracking";
+import { settingsLikeMainScrollClassName } from "#/utils/settings-like-page-layout-classes";
 import type { Automation } from "#/types/automation";
 
 const PAGE_SIZE = 50;
@@ -158,20 +159,23 @@ export default function AutomationsList() {
   // Show loading state while checking health
   if (isHealthLoading) {
     return (
-      <div className="min-h-full">
-        <div className="p-6 max-w-4xl mx-auto">
-          <h1 className="text-xl font-medium text-content">
-            {t(I18nKey.AUTOMATIONS$TITLE)}
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            {t(I18nKey.AUTOMATIONS$SUBTITLE)}
-          </p>
-          <div className="mt-6 flex flex-col gap-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <AutomationCardSkeleton key={`skeleton-${String(i)}`} />
-            ))}
+      <div className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10">
+        <AutomationsNavigation />
+        <main className={settingsLikeMainScrollClassName}>
+          <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-6">
+            <h1 className="text-xl font-medium text-content">
+              {t(I18nKey.AUTOMATIONS$TITLE)}
+            </h1>
+            <p className="mt-1 text-sm text-muted">
+              {t(I18nKey.AUTOMATIONS$SUBTITLE)}
+            </p>
+            <div className="mt-6 flex flex-col gap-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <AutomationCardSkeleton key={`skeleton-${String(i)}`} />
+              ))}
+            </div>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -179,140 +183,145 @@ export default function AutomationsList() {
   // Show backend not configured state if health check failed
   if (!isBackendHealthy) {
     return (
-      <div className="min-h-full">
-        <div className="p-6 max-w-4xl mx-auto">
-          <h1 className="text-xl font-medium text-content">
-            {t(I18nKey.AUTOMATIONS$TITLE)}
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            {t(I18nKey.AUTOMATIONS$SUBTITLE)}
-          </p>
-          <BackendNotConfigured onRetry={refetchHealth} />
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-full">
-      <div className="p-6 max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-content">
+      <div className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10">
+        <AutomationsNavigation />
+        <main className={settingsLikeMainScrollClassName}>
+          <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-6">
+            <h1 className="text-xl font-medium text-content">
               {t(I18nKey.AUTOMATIONS$TITLE)}
             </h1>
             <p className="mt-1 text-sm text-muted">
               {t(I18nKey.AUTOMATIONS$SUBTITLE)}
             </p>
+            <BackendNotConfigured onRetry={refetchHealth} />
           </div>
-          <BrandButton
-            type="button"
-            variant="secondary"
-            testId="automations-add-automation"
-            className="shrink-0 whitespace-nowrap"
-            onClick={() => setIsAddAutomationOpen(true)}
-          >
-            {t(I18nKey.AUTOMATIONS$ADD_AUTOMATION)}
-          </BrandButton>
-        </div>
-
-        {/* Search */}
-        <div className="mt-6 flex items-stretch gap-2">
-          <SearchInput value={searchQuery} onChange={setSearchQuery} />
-          <AutomationViewToggle
-            view={viewMode}
-            onChange={handleViewModeChange}
-            disabled={hasNoAutomations}
-          />
-        </div>
-
-        {/* Content */}
-        <div className="mt-6 flex flex-col gap-6">
-          {isLoading && (
-            <div className="flex flex-col gap-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <AutomationCardSkeleton key={`skeleton-${String(i)}`} />
-              ))}
-            </div>
-          )}
-
-          {isError && !isLoading && <ErrorState onRetry={refetch} />}
-
-          {hasNoAutomations && <EmptyState />}
-
-          {!isLoading && !isError && data && data.automations.length > 0 && (
-            <>
-              <AutomationGroup
-                title={t(I18nKey.AUTOMATIONS$ACTIVE)}
-                count={activeAutomations.length}
-                automations={activeAutomations}
-                view={viewMode}
-                onToggle={handleToggle}
-                onRunNow={handleRunNow}
-                runPendingId={
-                  dispatchMutation.isPending
-                    ? (dispatchMutation.variables ?? null)
-                    : null
-                }
-                onDelete={handleDeleteRequest}
-                onEdit={canEdit ? handleEditRequest : undefined}
-              />
-              <AutomationGroup
-                title={t(I18nKey.AUTOMATIONS$INACTIVE)}
-                count={inactive.length}
-                automations={inactive}
-                view={viewMode}
-                onToggle={handleToggle}
-                onRunNow={handleRunNow}
-                runPendingId={
-                  dispatchMutation.isPending
-                    ? (dispatchMutation.variables ?? null)
-                    : null
-                }
-                onDelete={handleDeleteRequest}
-                onEdit={canEdit ? handleEditRequest : undefined}
-              />
-
-              {hasMore && (
-                <button
-                  type="button"
-                  onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
-                  className="self-center rounded-lg border border-[var(--oh-border)] px-6 py-2 text-sm text-white hover:bg-surface-raised"
-                >
-                  {t(I18nKey.AUTOMATIONS$LOAD_MORE)}
-                </button>
-              )}
-            </>
-          )}
-        </div>
-
-        <div className="mt-6">
-          <RecommendedAutomationsLauncher query={searchQuery} />
-        </div>
-
-        {/* Delete confirmation modal */}
-        <DeleteConfirmationModal
-          automationName={deleteTarget?.name ?? ""}
-          isOpen={deleteTarget !== null}
-          onConfirm={handleDeleteConfirm}
-          onCancel={() => setDeleteTarget(null)}
-        />
-
-        {/* Edit modal — local backends only */}
-        {editTarget && (
-          <EditAutomationModal
-            automation={editTarget}
-            isOpen={editTarget !== null}
-            onClose={() => setEditTarget(null)}
-          />
-        )}
-
-        <AddAutomationModal
-          isOpen={isAddAutomationOpen}
-          onClose={() => setIsAddAutomationOpen(false)}
-        />
+        </main>
       </div>
+    );
+  }
+
+  return (
+    <div
+      data-testid="automations-list-screen"
+      className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10"
+    >
+      <AutomationsNavigation />
+      <main className={settingsLikeMainScrollClassName}>
+        <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-6">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold text-content">
+                {t(I18nKey.AUTOMATIONS$TITLE)}
+              </h1>
+              <p className="mt-1 text-sm text-muted">
+                {t(I18nKey.AUTOMATIONS$SUBTITLE)}
+              </p>
+            </div>
+            <BrandButton
+              type="button"
+              variant="secondary"
+              testId="automations-add-automation"
+              className="shrink-0 whitespace-nowrap"
+              onClick={() => setIsAddAutomationOpen(true)}
+            >
+              {t(I18nKey.AUTOMATIONS$ADD_AUTOMATION)}
+            </BrandButton>
+          </div>
+
+          {/* Search */}
+          <div className="mt-6 flex items-stretch gap-2">
+            <SearchInput value={searchQuery} onChange={setSearchQuery} />
+            <AutomationViewToggle
+              view={viewMode}
+              onChange={handleViewModeChange}
+              disabled={hasNoAutomations}
+            />
+          </div>
+
+          {/* Content */}
+          <div className="mt-6 flex flex-col gap-6">
+            {isLoading && (
+              <div className="flex flex-col gap-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <AutomationCardSkeleton key={`skeleton-${String(i)}`} />
+                ))}
+              </div>
+            )}
+
+            {isError && !isLoading && <ErrorState onRetry={refetch} />}
+
+            {hasNoAutomations && <EmptyState />}
+
+            {!isLoading && !isError && data && data.automations.length > 0 && (
+              <>
+                <AutomationGroup
+                  title={t(I18nKey.AUTOMATIONS$ACTIVE)}
+                  count={activeAutomations.length}
+                  automations={activeAutomations}
+                  view={viewMode}
+                  onToggle={handleToggle}
+                  onRunNow={handleRunNow}
+                  runPendingId={
+                    dispatchMutation.isPending
+                      ? (dispatchMutation.variables ?? null)
+                      : null
+                  }
+                  onDelete={handleDeleteRequest}
+                  onEdit={canEdit ? handleEditRequest : undefined}
+                />
+                <AutomationGroup
+                  title={t(I18nKey.AUTOMATIONS$INACTIVE)}
+                  count={inactive.length}
+                  automations={inactive}
+                  view={viewMode}
+                  onToggle={handleToggle}
+                  onRunNow={handleRunNow}
+                  runPendingId={
+                    dispatchMutation.isPending
+                      ? (dispatchMutation.variables ?? null)
+                      : null
+                  }
+                  onDelete={handleDeleteRequest}
+                  onEdit={canEdit ? handleEditRequest : undefined}
+                />
+
+                {hasMore && (
+                  <button
+                    type="button"
+                    onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
+                    className="self-center rounded-lg border border-[var(--oh-border)] px-6 py-2 text-sm text-white hover:bg-surface-raised"
+                  >
+                    {t(I18nKey.AUTOMATIONS$LOAD_MORE)}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Delete confirmation modal */}
+          <DeleteConfirmationModal
+            automationName={deleteTarget?.name ?? ""}
+            isOpen={deleteTarget !== null}
+            onConfirm={handleDeleteConfirm}
+            onCancel={() => setDeleteTarget(null)}
+          />
+
+          {/* Edit modal — local backends only */}
+          {editTarget && (
+            <EditAutomationModal
+              automation={editTarget}
+              isOpen={editTarget !== null}
+              onClose={() => setEditTarget(null)}
+            />
+          )}
+
+          <AddAutomationModal
+            isOpen={isAddAutomationOpen}
+            onClose={() => setIsAddAutomationOpen(false)}
+          />
+        </div>
+      </main>
     </div>
   );
 }

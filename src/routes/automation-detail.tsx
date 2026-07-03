@@ -16,7 +16,7 @@ import {
 import { useAutomationHealth } from "#/hooks/query/use-automation-health";
 import { useActiveBackend } from "#/contexts/active-backend-context";
 import { useNavigation } from "#/context/navigation-context";
-import { BackLink } from "#/components/features/automations/detail/back-link";
+import { AutomationsNavigation } from "#/components/features/automations/automations-navigation";
 import { DetailHeader } from "#/components/features/automations/detail/detail-header";
 import { PromptSection } from "#/components/features/automations/detail/prompt-section";
 import { ConfigurationSection } from "#/components/features/automations/detail/configuration-section";
@@ -30,6 +30,7 @@ import { BackendNotConfigured } from "#/components/features/automations/backend-
 import { DeleteConfirmationModal } from "#/components/features/automations/delete-confirmation-modal";
 import { EditAutomationModal } from "#/components/features/automations/detail/edit-automation-modal";
 import { useTracking } from "#/hooks/use-tracking";
+import { settingsLikeMainScrollClassName } from "#/utils/settings-like-page-layout-classes";
 
 export default function AutomationDetail() {
   const { t } = useTranslation("openhands");
@@ -78,10 +79,13 @@ export default function AutomationDetail() {
   // Show loading state while checking health
   if (isHealthLoading) {
     return (
-      <div className="min-h-full">
-        <div className="p-6 max-w-4xl mx-auto">
-          <DetailSkeleton />
-        </div>
+      <div className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10">
+        <AutomationsNavigation />
+        <main className={settingsLikeMainScrollClassName}>
+          <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-6">
+            <DetailSkeleton />
+          </div>
+        </main>
       </div>
     );
   }
@@ -89,40 +93,52 @@ export default function AutomationDetail() {
   // Show backend not configured state if health check failed
   if (!isBackendHealthy) {
     return (
-      <div className="min-h-full">
-        <div className="p-6 max-w-4xl mx-auto">
-          <BackendNotConfigured onRetry={refetchHealth} />
-        </div>
+      <div className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10">
+        <AutomationsNavigation />
+        <main className={settingsLikeMainScrollClassName}>
+          <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-6">
+            <BackendNotConfigured onRetry={refetchHealth} />
+          </div>
+        </main>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="min-h-full">
-        <div className="p-6 max-w-4xl mx-auto">
-          <DetailSkeleton />
-        </div>
+      <div className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10">
+        <AutomationsNavigation />
+        <main className={settingsLikeMainScrollClassName}>
+          <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-6">
+            <DetailSkeleton />
+          </div>
+        </main>
       </div>
     );
   }
 
   if (is404) {
     return (
-      <div className="min-h-full">
-        <div className="p-6 max-w-4xl mx-auto">
-          <NotFoundState />
-        </div>
+      <div className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10">
+        <AutomationsNavigation />
+        <main className={settingsLikeMainScrollClassName}>
+          <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-6">
+            <NotFoundState />
+          </div>
+        </main>
       </div>
     );
   }
 
   if (isError || !automation) {
     return (
-      <div className="min-h-full">
-        <div className="p-6 max-w-4xl mx-auto">
-          <ErrorState onRetry={() => refetch()} />
-        </div>
+      <div className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10">
+        <AutomationsNavigation />
+        <main className={settingsLikeMainScrollClassName}>
+          <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-6">
+            <ErrorState onRetry={() => refetch()} />
+          </div>
+        </main>
       </div>
     );
   }
@@ -168,10 +184,10 @@ export default function AutomationDetail() {
   const canEdit = active.backend.kind === "local";
 
   return (
-    <div className="min-h-full">
-      <div className="p-6 max-w-4xl mx-auto">
-        <div className="flex flex-col gap-4">
-          <BackLink />
+    <div className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10">
+      <AutomationsNavigation />
+      <main className={settingsLikeMainScrollClassName}>
+        <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-4">
           <DetailHeader
             automation={automation}
             onToggle={handleToggle}
@@ -204,7 +220,7 @@ export default function AutomationDetail() {
             />
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

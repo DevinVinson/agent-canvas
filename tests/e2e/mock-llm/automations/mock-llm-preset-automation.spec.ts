@@ -89,9 +89,7 @@ async function assertActivatedSkills(
           return Array.isArray(skills) && skills.length > 0;
         });
 
-        return found
-          ? "FOUND"
-          : `${items.length} events: [${diag.join(", ")}]`;
+        return found ? "FOUND" : `${items.length} events: [${diag.join(", ")}]`;
       },
       {
         message: "activated_skills not found in conversation events",
@@ -182,7 +180,7 @@ test.describe("preset automation → slash command conversation", () => {
     });
 
     await routeSessionApiKey(page);
-    await page.goto("/automations", { waitUntil: "domcontentloaded" });
+    await page.goto("/automations/presets", { waitUntil: "domcontentloaded" });
     await dismissAnalyticsModal(page);
 
     // Click the Slack standup digest automation card
@@ -237,9 +235,9 @@ test.describe("preset automation → slash command conversation", () => {
       }
 
       // Now verify the slash command appears as a sent user message
-      await expect(
-        userMessages.filter({ hasText: SLASH_COMMAND }),
-      ).toBeVisible({ timeout: 15_000 });
+      await expect(userMessages.filter({ hasText: SLASH_COMMAND })).toBeVisible(
+        { timeout: 15_000 },
+      );
     });
   });
 
@@ -295,9 +293,9 @@ test.describe("preset automation → slash command conversation", () => {
 
     await test.step("verify user message", async () => {
       const userMessages = page.locator('[data-testid="user-message"]');
-      await expect(
-        userMessages.filter({ hasText: SLASH_COMMAND }),
-      ).toBeVisible({ timeout: 15_000 });
+      await expect(userMessages.filter({ hasText: SLASH_COMMAND })).toBeVisible(
+        { timeout: 15_000 },
+      );
     });
 
     await test.step("verify agent reply", async () => {
