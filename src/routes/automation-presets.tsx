@@ -27,7 +27,11 @@ export default function AutomationPresets() {
             </p>
           </div>
 
-          <SearchInput value={searchQuery} onChange={setSearchQuery} />
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            className="flex-none"
+          />
 
           <RecommendedAutomationsLauncher query={searchQuery} />
         </div>
