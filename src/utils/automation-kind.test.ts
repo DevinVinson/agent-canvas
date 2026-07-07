@@ -61,6 +61,23 @@ describe("classifyAutomation", () => {
 
     expect(result).toBe("responder");
   });
+
+  it("classifies chat polling automations as responders instead of routines", () => {
+    const result = classifyAutomation(
+      automation({
+        name: "Slack Channel Monitor",
+        trigger: {
+          type: "cron",
+          schedule: "* * * * *",
+        },
+        plugins: ["Slack"],
+        prompt:
+          "Poll Slack channels every minute and start a conversation when a trigger phrase is detected.",
+      }),
+    );
+
+    expect(result).toBe("responder");
+  });
 });
 
 describe("filterAutomationsByKind", () => {

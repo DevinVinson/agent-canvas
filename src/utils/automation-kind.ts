@@ -5,7 +5,25 @@ export type AutomationKind = "workflow" | "routine" | "responder";
 const SCHEDULE_TRIGGER_TYPES = new Set(["cron", "schedule"]);
 const RESPONDER_SOURCES = new Set(["slack", "teams"]);
 const RESPONDER_TEXT_MATCH =
-  /\b(responder|respond|mention|chatbot|slackbot)\b/i;
+  /\b(responder|respond|mention|monitor|chatbot|slackbot)\b/i;
+
+function isResponderSource(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return [...RESPONDER_SOURCES].some(
+    (source) =>
+      normalized === source || new RegExp(`\\b${source}\\b`, "i").test(value),
+  );
+}
+
+function hasResponderSource(automation: Automation): boolean {
+  const source = automation.trigger.source;
+  if (source && isResponderSource(source)) {
+    return true;
+  }
+
+  const plugins = automation.plugins ?? [];
+  return plugins.length > 0 && plugins.every(isResponderSource);
+}
 
 function hasResponderText(automation: Automation): boolean {
   return [
@@ -18,14 +36,8 @@ function hasResponderText(automation: Automation): boolean {
 
 export function classifyAutomation(automation: Automation): AutomationKind {
   const triggerType = automation.trigger.type.toLowerCase();
-  const source = automation.trigger.source?.toLowerCase();
 
-  if (
-    triggerType === "event" &&
-    source &&
-    RESPONDER_SOURCES.has(source) &&
-    hasResponderText(automation)
-  ) {
+  if (hasResponderSource(automation) && hasResponderText(automation)) {
     return "responder";
   }
 
