@@ -1,3 +1,5 @@
+export type AutomationKind = "workflow" | "routine" | "responder";
+
 export interface AutomationTrigger {
   /**
    * Trigger kind. Known values are the schedule aliases "cron" / "schedule"
@@ -22,6 +24,12 @@ export interface AutomationTrigger {
 export interface Automation {
   id: string;
   name: string;
+  /**
+   * User-facing SDLC type used to group automations in the Automate UI.
+   * Older records may not include this yet, so the frontend falls back to
+   * heuristic classification when it is absent.
+   */
+  kind?: AutomationKind;
   trigger: AutomationTrigger;
   enabled: boolean;
   repository?: string;

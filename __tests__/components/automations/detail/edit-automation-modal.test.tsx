@@ -16,6 +16,7 @@ import {
   displaySuccessToast,
   displayErrorToast,
 } from "#/utils/custom-toast-handlers";
+import { getAutomationKindOverride } from "#/utils/automation-kind-overrides";
 import type { Automation } from "#/types/automation";
 import type { Backend } from "#/api/backend-registry/types";
 
@@ -168,6 +169,62 @@ describe("EditAutomationModal", () => {
       expect(displaySuccessToast).toHaveBeenCalledTimes(1);
     });
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("saves a type-only edit locally without PATCHing the automation API", async () => {
+    // Arrange — the backend schema does not accept the frontend-only
+    // workflow/routine/responder type, so a type-only edit must stay local.
+    const user = userEvent.setup();
+    const { onClose } = renderModal(dailyAutomation);
+
+    // Act — change scheduled routine to responder and save.
+    await user.click(screen.getByLabelText("AUTOMATIONS$TYPE"));
+    await user.click(await screen.findByText("AUTOMATIONS$TYPE_RESPONDER"));
+    await user.click(screen.getByTestId("edit-automation-save"));
+
+    // Assert — no PATCH was sent, but the override is persisted for this
+    // active backend + automation id.
+    expect(AutomationService.updateAutomation).not.toHaveBeenCalled();
+    expect(
+      getAutomationKindOverride({
+        backendId: localBackend.id,
+        automationId: dailyAutomation.id,
+      }),
+    ).toBe("responder");
+    expect(displaySuccessToast).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("omits type from PATCH payload when saving it with other edits", async () => {
+    // Arrange
+    vi.mocked(AutomationService.updateAutomation).mockResolvedValue({
+      ...dailyAutomation,
+      name: "Morning digest",
+    });
+    const user = userEvent.setup();
+    renderModal(dailyAutomation);
+
+    // Act — change both backend-supported name and frontend-only type.
+    const nameInput = screen.getByTestId("edit-automation-name");
+    await user.clear(nameInput);
+    await user.type(nameInput, "Morning digest");
+    await user.click(screen.getByLabelText("AUTOMATIONS$TYPE"));
+    await user.click(await screen.findByText("AUTOMATIONS$TYPE_RESPONDER"));
+    await user.click(screen.getByTestId("edit-automation-save"));
+
+    // Assert — only supported fields go to PATCH; type is saved locally.
+    await waitFor(() => {
+      expect(AutomationService.updateAutomation).toHaveBeenCalledTimes(1);
+    });
+    expect(AutomationService.updateAutomation).toHaveBeenCalledWith("auto-1", {
+      name: "Morning digest",
+    });
+    expect(
+      getAutomationKindOverride({
+        backendId: localBackend.id,
+        automationId: dailyAutomation.id,
+      }),
+    ).toBe("responder");
   });
 
   it("blocks submit and shows a validation error when the name is empty", async () => {

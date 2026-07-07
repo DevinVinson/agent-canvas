@@ -5,6 +5,7 @@ import {
   AutomationRunStatus,
   type AutomationRunsResponse,
 } from "#/types/automation";
+import { applyAutomationKindOverride } from "#/utils/automation-kind-overrides";
 
 export const AUTOMATION_DETAIL_QUERY_KEY = ["automation-detail"] as const;
 export const AUTOMATION_RUNS_QUERY_KEY = ["automation-runs"] as const;
@@ -24,7 +25,12 @@ export function useAutomationDetail(options: UseAutomationDetailOptions) {
       active.backend.id,
       active.orgId,
     ],
-    queryFn: () => AutomationService.getAutomation(id),
+    queryFn: async () =>
+      applyAutomationKindOverride(
+        await AutomationService.getAutomation(id),
+        active.backend.id,
+        active.orgId,
+      ),
     staleTime: 5 * 60 * 1000,
     enabled: !!id && enabled,
   });

@@ -31,6 +31,21 @@ describe("classifyAutomation", () => {
     expect(result).toBe("routine");
   });
 
+  it("uses the saved automation kind before heuristic classification", () => {
+    const result = classifyAutomation(
+      automation({
+        kind: "responder",
+        trigger: {
+          type: "cron",
+          schedule: "0 9 * * 1-5",
+          schedule_human: "Weekdays at 09:00",
+        },
+      }),
+    );
+
+    expect(result).toBe("responder");
+  });
+
   it("classifies event automations as workflows", () => {
     const result = classifyAutomation(
       automation({

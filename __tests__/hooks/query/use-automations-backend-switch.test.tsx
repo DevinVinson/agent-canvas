@@ -21,6 +21,7 @@ import {
   useAutomationDetail,
   useAutomationRuns,
 } from "#/hooks/query/use-automation-detail";
+import { setAutomationKindOverride } from "#/utils/automation-kind-overrides";
 import type { Backend } from "#/api/backend-registry/types";
 import { AutomationRunStatus } from "#/types/automation";
 import type {
@@ -169,6 +170,37 @@ describe("automation hooks — backend switch", () => {
     await waitFor(() => {
       expect(AutomationService.getAutomation).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it("applies locally saved type overrides to automation lists", async () => {
+    setAutomationKindOverride({
+      backendId: localBackend.id,
+      automationId: "auto-1",
+      kind: "responder",
+    });
+
+    const { result } = renderHook(
+      () => useAutomations({ limit: 50, offset: 0 }),
+      { wrapper: makeWrapper() },
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.automations[0]?.kind).toBe("responder");
+  });
+
+  it("applies locally saved type overrides to automation details", async () => {
+    setAutomationKindOverride({
+      backendId: localBackend.id,
+      automationId: "auto-1",
+      kind: "workflow",
+    });
+
+    const { result } = renderHook(() => useAutomationDetail({ id: "auto-1" }), {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.data?.kind).toBe("workflow");
   });
 
   it("useDispatchAutomation dispatches the selected automation", async () => {

@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { isAxiosError } from "axios";
+import { useQueryClient } from "@tanstack/react-query";
 import { I18nKey } from "#/i18n/declaration";
 import type { Automation } from "#/types/automation";
-import { useUpdateAutomation } from "#/hooks/query/use-automations";
+import {
+  AUTOMATIONS_QUERY_KEY,
+  useUpdateAutomation,
+} from "#/hooks/query/use-automations";
+import { AUTOMATION_DETAIL_QUERY_KEY } from "#/hooks/query/use-automation-detail";
+import { useActiveBackend } from "#/contexts/active-backend-context";
 import { useLlmProfiles } from "#/hooks/query/use-llm-profiles";
 import { SettingsInput } from "#/components/features/settings/settings-input";
 import { SettingsDropdownInput } from "#/components/features/settings/settings-dropdown-input";
@@ -21,6 +27,11 @@ import {
   formatEventOn,
   type SchedulePresetKind,
 } from "#/utils/automation-schedule";
+import {
+  classifyAutomation,
+  type AutomationKind,
+} from "#/utils/automation-kind";
+import { setAutomationKindOverride } from "#/utils/automation-kind-overrides";
 import { cn } from "#/utils/utils";
 import {
   formControlMultilineFieldClassName,
@@ -48,6 +59,7 @@ const WEEKDAY_KEYS: I18nKey[] = [
 
 interface FormState {
   name: string;
+  kind: AutomationKind;
   prompt: string;
   model: string;
   frequency: FrequencyKey;
@@ -58,9 +70,12 @@ interface FormState {
 }
 
 function buildInitialState(automation: Automation): FormState {
+  const kind = classifyAutomation(automation);
+
   if (automation.trigger.type === "event") {
     return {
       name: automation.name,
+      kind,
       prompt: automation.prompt ?? "",
       model: automation.model ?? "",
       frequency: "custom",
@@ -74,6 +89,7 @@ function buildInitialState(automation: Automation): FormState {
   if (parsed.kind === "custom") {
     return {
       name: automation.name,
+      kind,
       prompt: automation.prompt ?? "",
       model: automation.model ?? "",
       frequency: "custom",
@@ -88,6 +104,7 @@ function buildInitialState(automation: Automation): FormState {
   }
   return {
     name: automation.name,
+    kind,
     prompt: automation.prompt ?? "",
     model: automation.model ?? "",
     frequency: parsed.kind,
@@ -104,6 +121,8 @@ export function EditAutomationModal({
   onClose,
 }: EditAutomationModalProps) {
   const { t } = useTranslation("openhands");
+  const active = useActiveBackend();
+  const queryClient = useQueryClient();
   const updateMutation = useUpdateAutomation();
   const { data: profilesData, isLoading: isLoadingProfiles } = useLlmProfiles();
   const profiles = profilesData?.profiles ?? [];
@@ -149,11 +168,38 @@ export function EditAutomationModal({
     key: String(index),
     label: t(key),
   }));
+  const kindItems = [
+    {
+      key: "workflow",
+      label: t(I18nKey.AUTOMATIONS$TYPE_WORKFLOW),
+    },
+    {
+      key: "routine",
+      label: t(I18nKey.AUTOMATIONS$TYPE_ROUTINE),
+    },
+    {
+      key: "responder",
+      label: t(I18nKey.AUTOMATIONS$TYPE_RESPONDER),
+    },
+  ];
 
   const isTimeEditable =
     !form.isCustomSchedule ||
     parseTimeOfDay(form.timeOfDay) !== null ||
     form.timeOfDay === "";
+
+  const saveKindOverride = () => {
+    setAutomationKindOverride({
+      backendId: active.backend.id,
+      orgId: active.orgId,
+      automationId: automation.id,
+      kind: form.kind,
+    });
+    void queryClient.invalidateQueries({ queryKey: AUTOMATIONS_QUERY_KEY });
+    void queryClient.invalidateQueries({
+      queryKey: AUTOMATION_DETAIL_QUERY_KEY,
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -170,6 +216,8 @@ export function EditAutomationModal({
     if (trimmedName !== automation.name) {
       body.name = trimmedName;
     }
+
+    const kindChanged = form.kind !== classifyAutomation(automation);
 
     const trimmedPrompt = form.prompt.trim();
     const initialPrompt = automation.prompt ?? "";
@@ -201,6 +249,10 @@ export function EditAutomationModal({
     }
 
     if (Object.keys(body).length === 0) {
+      if (kindChanged) {
+        saveKindOverride();
+        displaySuccessToast(t(I18nKey.AUTOMATIONS$EDIT_SUCCESS));
+      }
       onClose();
       return;
     }
@@ -209,6 +261,9 @@ export function EditAutomationModal({
       { id: automation.id, body },
       {
         onSuccess: () => {
+          if (kindChanged) {
+            saveKindOverride();
+          }
           displaySuccessToast(t(I18nKey.AUTOMATIONS$EDIT_SUCCESS));
           onClose();
         },
@@ -263,6 +318,20 @@ export function EditAutomationModal({
             onChange={(value) => setForm((f) => ({ ...f, name: value }))}
             error={nameError ?? undefined}
             showRequiredTag
+          />
+
+          <SettingsDropdownInput
+            testId="edit-automation-kind"
+            name="kind"
+            label={t(I18nKey.AUTOMATIONS$TYPE)}
+            items={kindItems}
+            selectedKey={form.kind}
+            isClearable={false}
+            required
+            onSelectionChange={(key) => {
+              if (!key) return;
+              setForm((f) => ({ ...f, kind: String(key) as AutomationKind }));
+            }}
           />
 
           <label className="flex flex-col gap-2.5 w-full min-w-0">

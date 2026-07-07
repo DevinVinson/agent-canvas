@@ -1,11 +1,22 @@
-import type { Automation } from "#/types/automation";
+import type { Automation, AutomationKind } from "#/types/automation";
 
-export type AutomationKind = "workflow" | "routine" | "responder";
+export type { AutomationKind };
 
 const SCHEDULE_TRIGGER_TYPES = new Set(["cron", "schedule"]);
 const RESPONDER_SOURCES = new Set(["slack", "teams"]);
 const RESPONDER_TEXT_MATCH =
   /\b(responder|respond|mention|monitor|chatbot|slackbot)\b/i;
+const AUTOMATION_KINDS = new Set<AutomationKind>([
+  "workflow",
+  "routine",
+  "responder",
+]);
+
+function isAutomationKind(value: unknown): value is AutomationKind {
+  return (
+    typeof value === "string" && AUTOMATION_KINDS.has(value as AutomationKind)
+  );
+}
 
 function isResponderSource(value: string): boolean {
   const normalized = value.toLowerCase();
@@ -35,6 +46,10 @@ function hasResponderText(automation: Automation): boolean {
 }
 
 export function classifyAutomation(automation: Automation): AutomationKind {
+  if (isAutomationKind(automation.kind)) {
+    return automation.kind;
+  }
+
   const triggerType = automation.trigger.type.toLowerCase();
 
   if (hasResponderSource(automation) && hasResponderText(automation)) {

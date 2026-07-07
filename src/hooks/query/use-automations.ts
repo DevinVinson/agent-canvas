@@ -3,6 +3,7 @@ import AutomationService from "#/api/automation-service/automation-service.api";
 import { useActiveBackend } from "#/contexts/active-backend-context";
 import { useTracking } from "#/hooks/use-tracking";
 import type { Automation } from "#/types/automation";
+import { applyAutomationKindOverrides } from "#/utils/automation-kind-overrides";
 import {
   AUTOMATION_DETAIL_QUERY_KEY,
   AUTOMATION_RUNS_QUERY_KEY,
@@ -26,7 +27,17 @@ export function useAutomations(options: UseAutomationsOptions = {}) {
       active.backend.id,
       active.orgId,
     ],
-    queryFn: () => AutomationService.getAutomations(limit, offset),
+    queryFn: async () => {
+      const response = await AutomationService.getAutomations(limit, offset);
+      return {
+        ...response,
+        automations: applyAutomationKindOverrides(
+          response.automations,
+          active.backend.id,
+          active.orgId,
+        ),
+      };
+    },
     staleTime: 0,
     enabled,
   });
