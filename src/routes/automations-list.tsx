@@ -1,162 +1,145 @@
-import { useState, useMemo, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { isAxiosError } from "axios";
-import { I18nKey } from "#/i18n/declaration";
-import {
-  displaySuccessToast,
-  displayErrorToast,
-} from "#/utils/custom-toast-handlers";
-import {
-  useAutomations,
-  useToggleAutomation,
-  useDeleteAutomation,
-  useDispatchAutomation,
-} from "#/hooks/query/use-automations";
 import { useAutomationHealth } from "#/hooks/query/use-automation-health";
-import { useActiveBackend } from "#/contexts/active-backend-context";
-import { SearchInput } from "#/components/features/automations/search-input";
-import { AutomationGroup } from "#/components/features/automations/automation-group";
-import { AutomationViewToggle } from "#/components/features/automations/automation-view-toggle";
+import { useAutomations } from "#/hooks/query/use-automations";
+import { useNavigation } from "#/context/navigation-context";
 import { AutomationsNavigation } from "#/components/features/automations/automations-navigation";
-import {
-  readStoredAutomationViewMode,
-  writeStoredAutomationViewMode,
-  type AutomationViewMode,
-} from "#/components/features/automations/automation-view-mode";
 import { AutomationCardSkeleton } from "#/components/features/automations/automation-card-skeleton";
-import { EmptyState } from "#/components/features/automations/empty-state";
-import { ErrorState } from "#/components/features/automations/error-state";
 import { BackendNotConfigured } from "#/components/features/automations/backend-not-configured";
-import { DeleteConfirmationModal } from "#/components/features/automations/delete-confirmation-modal";
-import { EditAutomationModal } from "#/components/features/automations/detail/edit-automation-modal";
+import { ErrorState } from "#/components/features/automations/error-state";
 import { AddAutomationModal } from "#/components/features/automations/add-automation-modal";
 import { BrandButton } from "#/components/features/settings/brand-button";
-import { useTracking } from "#/hooks/use-tracking";
+import { I18nKey } from "#/i18n/declaration";
 import { settingsLikeMainScrollClassName } from "#/utils/settings-like-page-layout-classes";
+import {
+  classifyAutomation,
+  type AutomationKind,
+} from "#/utils/automation-kind";
+import { formatTimeDelta } from "#/utils/format-time-delta";
 import type { Automation } from "#/types/automation";
 
 const PAGE_SIZE = 50;
 
-export default function AutomationsList() {
-  const { t } = useTranslation("openhands");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<AutomationViewMode>(() =>
-    readStoredAutomationViewMode(),
+const KIND_CARDS: {
+  kind: AutomationKind;
+  titleKey: I18nKey;
+  descriptionKey: I18nKey;
+  href: string;
+  actionKey: I18nKey;
+}[] = [
+  {
+    kind: "workflow",
+    titleKey: I18nKey.AUTOMATIONS$WORKFLOWS_TITLE,
+    descriptionKey: I18nKey.AUTOMATIONS$WORKFLOWS_SUBTITLE,
+    href: "/automations/workflows",
+    actionKey: I18nKey.AUTOMATIONS$CREATE_WORKFLOW,
+  },
+  {
+    kind: "routine",
+    titleKey: I18nKey.AUTOMATIONS$ROUTINES_TITLE,
+    descriptionKey: I18nKey.AUTOMATIONS$ROUTINES_SUBTITLE,
+    href: "/automations/routines",
+    actionKey: I18nKey.AUTOMATIONS$CREATE_ROUTINE,
+  },
+  {
+    kind: "responder",
+    titleKey: I18nKey.AUTOMATIONS$RESPONDERS_TITLE,
+    descriptionKey: I18nKey.AUTOMATIONS$RESPONDERS_SUBTITLE,
+    href: "/automations/responders",
+    actionKey: I18nKey.AUTOMATIONS$CREATE_RESPONDER,
+  },
+];
+
+function countByKind(automations: Automation[]) {
+  return automations.reduce<Record<AutomationKind, number>>(
+    (counts, automation) => {
+      const kind = classifyAutomation(automation);
+      return { ...counts, [kind]: counts[kind] + 1 };
+    },
+    { workflow: 0, routine: 0, responder: 0 },
   );
-  const [limit, setLimit] = useState(PAGE_SIZE);
-  const [deleteTarget, setDeleteTarget] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [editTarget, setEditTarget] = useState<Automation | null>(null);
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-[var(--oh-border)] bg-base-secondary p-4">
+      <p className="text-xs text-muted">{label}</p>
+      <p className="mt-2 text-2xl font-semibold text-content">{value}</p>
+    </div>
+  );
+}
+
+function DashboardEmptyState({
+  onCreate,
+  onBrowseTemplates,
+}: {
+  onCreate: () => void;
+  onBrowseTemplates: () => void;
+}) {
+  const { t } = useTranslation("openhands");
+
+  return (
+    <div
+      data-testid="automations-dashboard-empty"
+      className="rounded-lg border border-[var(--oh-border)] bg-base-secondary px-6 py-10 text-center"
+    >
+      <h2 className="text-base font-semibold text-content">
+        {t(I18nKey.AUTOMATIONS$DASHBOARD_EMPTY_TITLE)}
+      </h2>
+      <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-muted">
+        {t(I18nKey.AUTOMATIONS$DASHBOARD_EMPTY_DESCRIPTION)}
+      </p>
+      <div className="mt-6 flex flex-wrap justify-center gap-2">
+        <BrandButton type="button" variant="secondary" onClick={onCreate}>
+          {t(I18nKey.AUTOMATIONS$CREATE_AUTOMATION)}
+        </BrandButton>
+        <BrandButton
+          type="button"
+          variant="secondary"
+          onClick={onBrowseTemplates}
+        >
+          {t(I18nKey.AUTOMATIONS$BROWSE_TEMPLATES)}
+        </BrandButton>
+      </div>
+    </div>
+  );
+}
+
+export default function AutomationsDashboard() {
+  const { t } = useTranslation("openhands");
+  const { navigate } = useNavigation();
   const [isAddAutomationOpen, setIsAddAutomationOpen] = useState(false);
-
-  const active = useActiveBackend();
-  // Edit is a local-backend-only feature in MVP — cloud automations
-  // are managed elsewhere and we don't yet surface them here.
-  const canEdit = active.backend.kind === "local";
-
   const {
     data: healthData,
     isLoading: isHealthLoading,
     refetch: refetchHealth,
   } = useAutomationHealth();
-
   const isBackendHealthy = healthData?.status === "ok";
-
-  // Only fetch automations if the backend is healthy
   const { data, isLoading, isError, refetch } = useAutomations({
-    limit,
+    limit: PAGE_SIZE,
     offset: 0,
     enabled: isBackendHealthy,
   });
-  const { trackPrebuiltAutomationEnabled } = useTracking();
-  const toggleMutation = useToggleAutomation();
-  const deleteMutation = useDeleteAutomation();
-  const dispatchMutation = useDispatchAutomation();
 
-  const filtered = useMemo(() => {
-    if (!data?.automations) return [];
-    const q = searchQuery.toLowerCase();
-    if (!q) return data.automations;
-    return data.automations.filter(
-      (a) =>
-        a.name.toLowerCase().includes(q) ||
-        (a.prompt ?? "").toLowerCase().includes(q) ||
-        a.repository?.toLowerCase().includes(q) ||
-        a.model?.toLowerCase().includes(q),
-    );
-  }, [data?.automations, searchQuery]);
-
-  const activeAutomations = useMemo(
-    () => filtered.filter((a) => a.enabled),
-    [filtered],
-  );
-  const inactive = useMemo(
-    () => filtered.filter((a) => !a.enabled),
-    [filtered],
+  const automations = data?.automations ?? [];
+  const activeCount = automations.filter(
+    (automation) => automation.enabled,
+  ).length;
+  const kindCounts = useMemo(() => countByKind(automations), [automations]);
+  const recentAutomations = useMemo(
+    () =>
+      automations
+        .filter((automation) => automation.last_triggered_at)
+        .slice()
+        .sort((a, b) =>
+          String(b.last_triggered_at).localeCompare(
+            String(a.last_triggered_at),
+          ),
+        )
+        .slice(0, 5),
+    [automations],
   );
 
-  const handleToggle = (id: string, currentEnabled: boolean) => {
-    const willEnable = !currentEnabled;
-    toggleMutation.mutate({ id, enabled: willEnable });
-    if (willEnable) {
-      const automation = data?.automations.find((a) => a.id === id);
-      trackPrebuiltAutomationEnabled({
-        automationId: id,
-        automationName: automation?.name ?? id,
-      });
-    }
-  };
-
-  const handleRunNow = (id: string) => {
-    dispatchMutation.mutate(id, {
-      onSuccess: () => {
-        displaySuccessToast(t(I18nKey.AUTOMATIONS$RUN_NOW_SUCCESS));
-      },
-      onError: (error) => {
-        const message = isAxiosError(error)
-          ? (error.response?.data as { message?: string } | undefined)
-              ?.message ||
-            error.message ||
-            t(I18nKey.AUTOMATIONS$RUN_NOW_ERROR)
-          : (error as Error).message || t(I18nKey.AUTOMATIONS$RUN_NOW_ERROR);
-        displayErrorToast(message);
-      },
-    });
-  };
-
-  const handleDeleteRequest = (id: string) => {
-    const automation = data?.automations.find((a) => a.id === id);
-    if (automation) {
-      setDeleteTarget({ id, name: automation.name });
-    }
-  };
-
-  const handleEditRequest = (id: string) => {
-    const automation = data?.automations.find((a) => a.id === id);
-    if (automation) {
-      setEditTarget(automation);
-    }
-  };
-
-  const handleDeleteConfirm = () => {
-    if (deleteTarget) {
-      deleteMutation.mutate(deleteTarget.id);
-      setDeleteTarget(null);
-    }
-  };
-
-  const handleViewModeChange = useCallback((view: AutomationViewMode) => {
-    setViewMode(view);
-    writeStoredAutomationViewMode(view);
-  }, []);
-
-  const hasMore = data ? data.total > data.automations.length : false;
-  const hasNoAutomations =
-    !isLoading && !isError && data?.automations.length === 0;
-
-  // Show loading state while checking health
   if (isHealthLoading) {
     return (
       <div className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10">
@@ -164,14 +147,14 @@ export default function AutomationsList() {
         <main className={settingsLikeMainScrollClassName}>
           <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-6">
             <h1 className="text-xl font-medium text-content">
-              {t(I18nKey.AUTOMATIONS$TITLE)}
+              {t(I18nKey.AUTOMATIONS$DASHBOARD_TITLE)}
             </h1>
             <p className="mt-1 text-sm text-muted">
-              {t(I18nKey.AUTOMATIONS$SUBTITLE)}
+              {t(I18nKey.AUTOMATIONS$DASHBOARD_LOADING_SUBTITLE)}
             </p>
             <div className="mt-6 flex flex-col gap-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <AutomationCardSkeleton key={`skeleton-${String(i)}`} />
+              {Array.from({ length: 3 }).map((_, index) => (
+                <AutomationCardSkeleton key={`skeleton-${String(index)}`} />
               ))}
             </div>
           </div>
@@ -180,7 +163,6 @@ export default function AutomationsList() {
     );
   }
 
-  // Show backend not configured state if health check failed
   if (!isBackendHealthy) {
     return (
       <div className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10">
@@ -188,10 +170,10 @@ export default function AutomationsList() {
         <main className={settingsLikeMainScrollClassName}>
           <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-6">
             <h1 className="text-xl font-medium text-content">
-              {t(I18nKey.AUTOMATIONS$TITLE)}
+              {t(I18nKey.AUTOMATIONS$DASHBOARD_TITLE)}
             </h1>
             <p className="mt-1 text-sm text-muted">
-              {t(I18nKey.AUTOMATIONS$SUBTITLE)}
+              {t(I18nKey.AUTOMATIONS$DASHBOARD_LOADING_SUBTITLE)}
             </p>
             <BackendNotConfigured onRetry={refetchHealth} />
           </div>
@@ -202,118 +184,171 @@ export default function AutomationsList() {
 
   return (
     <div
-      data-testid="automations-list-screen"
+      data-testid="automations-dashboard-screen"
       className="flex h-full gap-4 md:gap-6 md:pl-8 lg:gap-10 lg:pl-10"
     >
       <AutomationsNavigation />
       <main className={settingsLikeMainScrollClassName}>
         <div className="mx-auto flex w-full min-w-0 max-w-[800px] flex-col gap-6">
-          {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h1 className="text-xl font-semibold text-content">
-                {t(I18nKey.AUTOMATIONS$TITLE)}
+                {t(I18nKey.AUTOMATIONS$DASHBOARD_TITLE)}
               </h1>
               <p className="mt-1 text-sm text-muted">
-                {t(I18nKey.AUTOMATIONS$SUBTITLE)}
+                {t(I18nKey.AUTOMATIONS$DASHBOARD_SUBTITLE)}
               </p>
             </div>
             <BrandButton
               type="button"
               variant="secondary"
-              testId="automations-add-automation"
+              testId="automations-dashboard-create"
               className="shrink-0 whitespace-nowrap"
               onClick={() => setIsAddAutomationOpen(true)}
             >
-              {t(I18nKey.AUTOMATIONS$ADD_AUTOMATION)}
+              {t(I18nKey.AUTOMATIONS$CREATE_AUTOMATION)}
             </BrandButton>
           </div>
 
-          {/* Search */}
-          <div className="mt-6 flex items-stretch gap-2">
-            <SearchInput value={searchQuery} onChange={setSearchQuery} />
-            <AutomationViewToggle
-              view={viewMode}
-              onChange={handleViewModeChange}
-              disabled={hasNoAutomations}
+          {isLoading && (
+            <div className="mt-6 flex flex-col gap-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <AutomationCardSkeleton key={`skeleton-${String(index)}`} />
+              ))}
+            </div>
+          )}
+
+          {isError && !isLoading && <ErrorState onRetry={refetch} />}
+
+          {!isLoading && !isError && automations.length === 0 && (
+            <DashboardEmptyState
+              onCreate={() => setIsAddAutomationOpen(true)}
+              onBrowseTemplates={() => navigate?.("/automations/templates")}
             />
-          </div>
+          )}
 
-          {/* Content */}
-          <div className="mt-6 flex flex-col gap-6">
-            {isLoading && (
-              <div className="flex flex-col gap-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <AutomationCardSkeleton key={`skeleton-${String(i)}`} />
-                ))}
-              </div>
-            )}
-
-            {isError && !isLoading && <ErrorState onRetry={refetch} />}
-
-            {hasNoAutomations && <EmptyState />}
-
-            {!isLoading && !isError && data && data.automations.length > 0 && (
-              <>
-                <AutomationGroup
-                  title={t(I18nKey.AUTOMATIONS$ACTIVE)}
-                  count={activeAutomations.length}
-                  automations={activeAutomations}
-                  view={viewMode}
-                  onToggle={handleToggle}
-                  onRunNow={handleRunNow}
-                  runPendingId={
-                    dispatchMutation.isPending
-                      ? (dispatchMutation.variables ?? null)
-                      : null
-                  }
-                  onDelete={handleDeleteRequest}
-                  onEdit={canEdit ? handleEditRequest : undefined}
+          {!isLoading && !isError && automations.length > 0 && (
+            <>
+              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard
+                  label={t(I18nKey.AUTOMATIONS$TOTAL_AUTOMATIONS)}
+                  value={automations.length}
                 />
-                <AutomationGroup
-                  title={t(I18nKey.AUTOMATIONS$INACTIVE)}
-                  count={inactive.length}
-                  automations={inactive}
-                  view={viewMode}
-                  onToggle={handleToggle}
-                  onRunNow={handleRunNow}
-                  runPendingId={
-                    dispatchMutation.isPending
-                      ? (dispatchMutation.variables ?? null)
-                      : null
-                  }
-                  onDelete={handleDeleteRequest}
-                  onEdit={canEdit ? handleEditRequest : undefined}
+                <StatCard
+                  label={t(I18nKey.AUTOMATIONS$ACTIVE)}
+                  value={activeCount}
                 />
+                <StatCard
+                  label={t(I18nKey.AUTOMATIONS$ROUTINES_TITLE)}
+                  value={kindCounts.routine}
+                />
+                <StatCard
+                  label={t(I18nKey.AUTOMATIONS$RESPONDERS_TITLE)}
+                  value={kindCounts.responder}
+                />
+              </section>
 
-                {hasMore && (
-                  <button
+              <section className="grid gap-3 md:grid-cols-3">
+                {KIND_CARDS.map((card) => {
+                  const cardTitle = t(card.titleKey);
+                  const cardDescription = t(card.descriptionKey);
+                  const cardAction = t(card.actionKey);
+
+                  return (
+                    <div
+                      key={card.kind}
+                      className="rounded-lg border border-[var(--oh-border)] bg-base-secondary p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h2 className="text-sm font-semibold text-content">
+                            {cardTitle}
+                          </h2>
+                          <p className="mt-1 text-xs leading-relaxed text-muted">
+                            {cardDescription}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-surface-raised px-2 py-0.5 text-xs text-tertiary-light">
+                          {kindCounts[card.kind]}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <BrandButton
+                          type="button"
+                          variant="secondary"
+                          onClick={() => navigate?.(card.href)}
+                        >
+                          {t(I18nKey.AUTOMATIONS$VIEW)}
+                        </BrandButton>
+                        <BrandButton
+                          type="button"
+                          variant="secondary"
+                          onClick={() => setIsAddAutomationOpen(true)}
+                        >
+                          {cardAction}
+                        </BrandButton>
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+
+              <section className="rounded-lg border border-[var(--oh-border)] bg-base-secondary p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-content">
+                      {t(I18nKey.AUTOMATIONS$RECENT_ACTIVITY)}
+                    </h2>
+                    <p className="mt-1 text-xs text-muted">
+                      {t(I18nKey.AUTOMATIONS$RUNS_DETAIL_HINT)}
+                    </p>
+                  </div>
+                  <BrandButton
                     type="button"
-                    onClick={() => setLimit((prev) => prev + PAGE_SIZE)}
-                    className="self-center rounded-lg border border-[var(--oh-border)] px-6 py-2 text-sm text-white hover:bg-surface-raised"
+                    variant="secondary"
+                    onClick={() => navigate?.("/automations/templates")}
                   >
-                    {t(I18nKey.AUTOMATIONS$LOAD_MORE)}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Delete confirmation modal */}
-          <DeleteConfirmationModal
-            automationName={deleteTarget?.name ?? ""}
-            isOpen={deleteTarget !== null}
-            onConfirm={handleDeleteConfirm}
-            onCancel={() => setDeleteTarget(null)}
-          />
-
-          {/* Edit modal — local backends only */}
-          {editTarget && (
-            <EditAutomationModal
-              automation={editTarget}
-              isOpen={editTarget !== null}
-              onClose={() => setEditTarget(null)}
-            />
+                    {t(I18nKey.AUTOMATIONS$BROWSE_TEMPLATES)}
+                  </BrandButton>
+                </div>
+                <div className="mt-4 flex flex-col divide-y divide-[var(--oh-border)]">
+                  {recentAutomations.length > 0 ? (
+                    recentAutomations.map((automation) => (
+                      <button
+                        key={automation.id}
+                        type="button"
+                        className="flex items-center justify-between gap-3 py-3 text-left hover:text-white"
+                        onClick={() =>
+                          navigate?.(`/automations/${automation.id}`)
+                        }
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm text-content">
+                            {automation.name}
+                          </span>
+                          <span className="block text-xs capitalize text-muted">
+                            {classifyAutomation(automation)}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-xs text-tertiary-light">
+                          {automation.last_triggered_at
+                            ? t(I18nKey.AUTOMATIONS$TIME_AGO, {
+                                time: formatTimeDelta(
+                                  automation.last_triggered_at,
+                                ),
+                              })
+                            : t(I18nKey.AUTOMATIONS$NEVER)}
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="py-6 text-sm text-muted">
+                      {t(I18nKey.AUTOMATIONS$NO_RECENT_RUNS)}
+                    </p>
+                  )}
+                </div>
+              </section>
+            </>
           )}
 
           <AddAutomationModal

@@ -14,7 +14,7 @@ import {
   setRegisteredBackends,
 } from "#/api/backend-registry/active-store";
 import { ActiveBackendProvider } from "#/contexts/active-backend-context";
-import AutomationsList from "#/routes/automations-list";
+import AutomationWorkflows from "#/routes/automation-workflows";
 import type { Backend } from "#/api/backend-registry/types";
 import {
   AutomationRunStatus,
@@ -56,9 +56,9 @@ const cloudBackend: Backend = {
 
 const automation: Automation = {
   id: "auto-1",
-  name: "Daily digest",
-  prompt: "Summarize yesterday's PRs",
-  trigger: { type: "cron", schedule: "0 9 * * *", schedule_human: "Daily" },
+  name: "PR review workflow",
+  prompt: "Review newly opened PRs",
+  trigger: { type: "event", source: "github", on: "pull_request.opened" },
   enabled: true,
   repository: "acme/repo",
   model: "daily-profile",
@@ -80,8 +80,8 @@ function renderList(queryClient?: QueryClient) {
   return render(
     <QueryClientProvider client={client}>
       <ActiveBackendProvider>
-        <MemoryRouter initialEntries={["/automations"]}>
-          <AutomationsList />
+        <MemoryRouter initialEntries={["/automations/workflows"]}>
+          <AutomationWorkflows />
         </MemoryRouter>
       </ActiveBackendProvider>
     </QueryClientProvider>,
@@ -106,7 +106,7 @@ afterEach(() => {
   __resetActiveStoreForTests();
 });
 
-describe("AutomationsList — Edit from the row kebab is local-only", () => {
+describe("AutomationWorkflows — Edit from the row kebab is local-only", () => {
   it("opens the Edit modal pre-filled with the row's values when the active backend is local", async () => {
     // Arrange — local backend is active (default beforeEach); render the list
     // and wait for the row to appear.
@@ -159,7 +159,7 @@ describe("AutomationsList — Edit from the row kebab is local-only", () => {
   });
 });
 
-describe("AutomationsList — view mode toggle", () => {
+describe("AutomationWorkflows — view mode toggle", () => {
   it("switches saved automations from cards to table rows", async () => {
     const user = userEvent.setup();
     renderList();
@@ -206,7 +206,7 @@ describe("AutomationsList — view mode toggle", () => {
   });
 });
 
-describe("AutomationsList — Run now toasts", () => {
+describe("AutomationWorkflows — Run now toasts", () => {
   beforeEach(async () => {
     const { displaySuccessToast, displayErrorToast } =
       await import("#/utils/custom-toast-handlers");
@@ -317,10 +317,10 @@ describe("AutomationsList — Run now toasts", () => {
   });
 });
 
-describe("AutomationsList — list freshness on remount", () => {
+describe("AutomationWorkflows — list freshness on remount", () => {
   it("surfaces automations created since the last visit without a manual refresh", async () => {
     // Arrange — share a QueryClient across two mounts to simulate the user
-    // navigating away from /automations and back. Between the two mounts an
+    // navigating away from /automations/workflows and back. Between the two mounts an
     // agent has created a new automation, so the service starts returning
     // it on the next call. Previously, the cached list was treated as fresh
     // for 5 minutes and the second mount would have re-rendered the stale

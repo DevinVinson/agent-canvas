@@ -1,5 +1,11 @@
 import type { ReactElement } from "react";
-import { Sparkles } from "lucide-react";
+import {
+  CalendarClock,
+  GitBranch,
+  LayoutDashboard,
+  MessagesSquare,
+  Sparkles,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NavigationLink } from "#/components/shared/navigation-link";
 import { useNavigation } from "#/context/navigation-context";
@@ -8,7 +14,6 @@ import {
   sidebarNavRowClassName,
 } from "#/components/features/sidebar/sidebar-layout";
 import { I18nKey } from "#/i18n/declaration";
-import AutomationsIcon from "#/icons/automations.svg?react";
 import { cn } from "#/utils/utils";
 
 interface AutomationNavItem {
@@ -21,13 +26,31 @@ interface AutomationNavItem {
 export const AUTOMATIONS_NAV_ITEMS: AutomationNavItem[] = [
   {
     to: "/automations",
-    label: "Automations",
-    icon: <AutomationsIcon width={16} height={16} aria-hidden="true" />,
+    label: "Dashboard",
+    icon: <LayoutDashboard width={16} height={16} aria-hidden="true" />,
     end: true,
   },
   {
-    to: "/automations/presets",
-    label: "Presets",
+    to: "/automations/workflows",
+    label: "Workflows",
+    icon: <GitBranch width={16} height={16} aria-hidden="true" />,
+    end: true,
+  },
+  {
+    to: "/automations/routines",
+    label: "Routines",
+    icon: <CalendarClock width={16} height={16} aria-hidden="true" />,
+    end: true,
+  },
+  {
+    to: "/automations/responders",
+    label: "Responders",
+    icon: <MessagesSquare width={16} height={16} aria-hidden="true" />,
+    end: true,
+  },
+  {
+    to: "/automations/templates",
+    label: "Templates",
     icon: <Sparkles width={16} height={16} aria-hidden="true" />,
     end: true,
   },
@@ -55,17 +78,9 @@ export function AutomationsNavigation() {
             className={({ isActive }) =>
               cn(sidebarNavRowClassName(), "truncate", {
                 [SIDEBAR_ROW_INTERACTIVE_CLASS.active]:
-                  isActive ||
-                  (item.to === "/automations" &&
-                    currentPath.startsWith("/automations/") &&
-                    currentPath !== "/automations/presets"),
+                  isActive || currentPath === item.to,
                 [SIDEBAR_ROW_INTERACTIVE_CLASS.idle]:
-                  !isActive &&
-                  !(
-                    item.to === "/automations" &&
-                    currentPath.startsWith("/automations/") &&
-                    currentPath !== "/automations/presets"
-                  ),
+                  !isActive && currentPath !== item.to,
               })
             }
           >

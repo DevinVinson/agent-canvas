@@ -17,16 +17,18 @@ describe("getMobileTopBarState", () => {
       backLabelKey: I18nKey.SIDEBAR$AUTOMATIONS,
     });
 
-    expect(getMobileTopBarState("/automations/presets")).toEqual({
-      mode: "back",
-      backTo: "/automate",
-      backLabelKey: I18nKey.SIDEBAR$AUTOMATIONS,
-    });
-
-    expect(getMobileTopBarState("/automations/example-id")).toEqual({
-      mode: "back",
-      backTo: "/automate",
-      backLabelKey: I18nKey.SIDEBAR$AUTOMATIONS,
+    [
+      "/automations/workflows",
+      "/automations/routines",
+      "/automations/responders",
+      "/automations/templates",
+      "/automations/example-id",
+    ].forEach((path) => {
+      expect(getMobileTopBarState(path)).toEqual({
+        mode: "back",
+        backTo: "/automate",
+        backLabelKey: I18nKey.SIDEBAR$AUTOMATIONS,
+      });
     });
   });
 });
@@ -35,6 +37,6 @@ describe("isExtensionsSectionPath", () => {
   it("does not classify Automate routes as Customize routes", () => {
     expect(isExtensionsSectionPath("/automate")).toBe(false);
     expect(isExtensionsSectionPath("/automations")).toBe(false);
-    expect(isExtensionsSectionPath("/automations/presets")).toBe(false);
+    expect(isExtensionsSectionPath("/automations/templates")).toBe(false);
   });
 });
