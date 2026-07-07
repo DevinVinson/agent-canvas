@@ -12682,7 +12682,7 @@
     "ca": "Responents"
   },
   "AUTOMATIONS$RESPONDERS_SUBTITLE": {
-    "en": "Create always-on chat-like connections that turn messages and mentions into Agent Canvas conversations.",
+    "en": "Create always-on chat-like connections that keep the agent available wherever you work.",
     "ja": "メッセージやメンションを Agent Canvas の会話に変える、常時稼働のチャット型接続を作成します。",
     "zh-CN": "创建始终在线的聊天式连接，将消息和提及转化为 Agent Canvas 对话。",
     "zh-TW": "建立常時在線的聊天式連線，將訊息與提及轉換為 Agent Canvas 對話。",
