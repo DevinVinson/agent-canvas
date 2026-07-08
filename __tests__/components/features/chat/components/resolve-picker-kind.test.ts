@@ -53,11 +53,46 @@ describe("resolvePickerKind", () => {
   });
 
   describe("inside a conversation", () => {
+    it("shows the agent-profile picker for an unstarted conversation when profiles exist", () => {
+      expect(
+        resolvePickerKind({
+          ...base,
+          hasConversation: true,
+          hasStartedConversation: false,
+          isCloud: false,
+          isAcp: false,
+          profilesAvailable: true,
+        }),
+      ).toBe("agent-profile");
+    });
+
+    it("uses the pre-run fallback for an unstarted conversation when profiles are unavailable", () => {
+      expect(
+        resolvePickerKind({
+          ...base,
+          hasConversation: true,
+          hasStartedConversation: false,
+          isCloud: false,
+          profilesAvailable: false,
+        }),
+      ).toBe("llm-profile");
+      expect(
+        resolvePickerKind({
+          ...base,
+          hasConversation: true,
+          hasStartedConversation: false,
+          isCloud: true,
+          profilesAvailable: false,
+        }),
+      ).toBe("model");
+    });
+
     it("shows the model picker for an ACP conversation regardless of backend", () => {
       expect(
         resolvePickerKind({
           ...base,
           hasConversation: true,
+          hasStartedConversation: true,
           isCloud: false,
           isAcp: true,
         }),
@@ -66,6 +101,7 @@ describe("resolvePickerKind", () => {
         resolvePickerKind({
           ...base,
           hasConversation: true,
+          hasStartedConversation: true,
           isCloud: true,
           isAcp: true,
         }),
@@ -80,6 +116,7 @@ describe("resolvePickerKind", () => {
         resolvePickerKind({
           ...base,
           hasConversation: true,
+          hasStartedConversation: true,
           isCloud: false,
           isAcp: false,
         }),
@@ -88,6 +125,7 @@ describe("resolvePickerKind", () => {
         resolvePickerKind({
           ...base,
           hasConversation: true,
+          hasStartedConversation: true,
           isCloud: true,
           isAcp: false,
         }),
@@ -99,6 +137,7 @@ describe("resolvePickerKind", () => {
         resolvePickerKind({
           ...base,
           hasConversation: true,
+          hasStartedConversation: true,
           isCloud: false,
           isAcp: false,
           profilesAvailable: false,

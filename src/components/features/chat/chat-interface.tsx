@@ -249,6 +249,7 @@ export function ChatInterface() {
         : false,
     [pendingMessages, conversationId],
   );
+  const hasStartedConversation = userEventsExist || hasPendingUserMessages;
 
   // Show V1 messages immediately if events exist in store (e.g., remount),
   // if the user already has a locally-tracked pending bubble (home-page cloud
@@ -630,6 +631,7 @@ export function ChatInterface() {
               <InteractiveChatBox
                 onSubmit={handleSendMessage}
                 disabled={isNewConversationPending || llmBlocked}
+                hasStartedConversation={hasStartedConversation}
               />
             </div>
           )}
