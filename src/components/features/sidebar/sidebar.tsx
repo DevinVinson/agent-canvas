@@ -136,8 +136,6 @@ export function Sidebar() {
     t,
   ]);
 
-  const linkDisabled = settings?.email_verified === false;
-
   const collapseToggleLabel = t(
     collapsed ? I18nKey.SIDEBAR$EXPAND : I18nKey.SIDEBAR$COLLAPSE,
   );
@@ -190,7 +188,6 @@ export function Sidebar() {
     currentPath.startsWith("/automations/");
 
   const railBodyProps = {
-    linkDisabled,
     collapseToggleLabel,
     onCollapse: handleCollapse,
     onExpand: () => setCollapsed(false),
