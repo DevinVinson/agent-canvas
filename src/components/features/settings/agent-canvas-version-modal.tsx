@@ -5,9 +5,7 @@ import {
   CheckCircle2,
   Copy,
   ExternalLink,
-  MessageCircle,
   RefreshCw,
-  Star,
 } from "lucide-react";
 import { ModalBackdrop } from "#/components/shared/modals/modal-backdrop";
 import { ModalCloseButton } from "#/components/shared/modals/modal-close-button";
@@ -20,9 +18,6 @@ const DOCKER_UPDATE_COMMAND =
 const RELEASE_NOTES_URL = "https://github.com/OpenHands/agent-canvas/releases";
 const DOCUMENTATION_URL =
   "https://docs.openhands.dev/openhands/usage/agent-canvas/backends";
-const GITHUB_REPO_URL = "https://github.com/OpenHands/agent-canvas";
-const GITHUB_ISSUE_URL =
-  "https://github.com/OpenHands/agent-canvas/issues/new/choose";
 
 type UpdateCommandTab = "npm" | "docker";
 
@@ -205,35 +200,6 @@ export function AgentCanvasVersionModal({
             </button>
           ) : null}
         </div>
-
-        <footer className="border-t border-[var(--oh-border)] pt-4">
-          <h3 className="text-sm font-semibold text-white">
-            {t(I18nKey.SETTINGS$VERSION_HELP_IMPROVE)}
-          </h3>
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <a
-              href={GITHUB_REPO_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-[var(--oh-interactive-hover)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--oh-surface-raised)]"
-            >
-              <Star
-                className="size-4 fill-[#FACC15] text-[#FACC15]"
-                aria-hidden
-              />
-              {t(I18nKey.SETTINGS$VERSION_STAR_ON_GITHUB)}
-            </a>
-            <a
-              href={GITHUB_ISSUE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-[var(--oh-interactive-hover)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--oh-surface-raised)]"
-            >
-              <MessageCircle className="size-4" aria-hidden />
-              {t(I18nKey.SETTINGS$VERSION_FILE_ISSUE)}
-            </a>
-          </div>
-        </footer>
       </section>
     </ModalBackdrop>
   );
