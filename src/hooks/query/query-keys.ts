@@ -60,4 +60,8 @@ export const CONFIG_CACHE_OPTIONS = {
   gcTime: 1000 * 60 * 15, // 15 minutes
 } as const;
 
+export const AGENT_CANVAS_VERSION_QUERY_KEYS = {
+  latest: ["agent-canvas-version", "latest"] as const,
+} as const;
+
 export type QueryKeys = (typeof QUERY_KEYS)[keyof typeof QUERY_KEYS];

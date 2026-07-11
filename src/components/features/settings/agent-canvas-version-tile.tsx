@@ -1,0 +1,75 @@
+import React from "react";
+import { useTranslation } from "react-i18next";
+import { ArrowUpCircle, CheckCircle2 } from "lucide-react";
+import { useAgentCanvasVersion } from "#/hooks/query/use-agent-canvas-version";
+import { I18nKey } from "#/i18n/declaration";
+import { cn } from "#/utils/utils";
+import { AgentCanvasVersionModal } from "./agent-canvas-version-modal";
+
+interface AgentCanvasVersionTileProps {
+  className?: string;
+}
+
+export function AgentCanvasVersionTile({
+  className,
+}: AgentCanvasVersionTileProps) {
+  const { t } = useTranslation("openhands");
+  const [isModalOpen, setIsModalOpen] = React.useState(false);
+  const {
+    installedVersion,
+    latestVersion,
+    updateAvailable,
+    isChecking,
+    checkForUpdates,
+  } = useAgentCanvasVersion();
+
+  return (
+    <>
+      <button
+        type="button"
+        data-testid="agent-canvas-version-tile"
+        onClick={() => setIsModalOpen(true)}
+        aria-label={t(I18nKey.SETTINGS$VERSION_TILE_ARIA_LABEL)}
+        className={cn(
+          "flex w-full items-center gap-3 rounded-md border border-[var(--oh-border)] bg-base-secondary px-3 py-2 text-left hover:bg-[var(--oh-surface-raised)]",
+          className,
+        )}
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold leading-5 text-white">
+            {t(I18nKey.SETTINGS$VERSION_PRODUCT_NAME)}
+          </span>
+          <span className="block truncate text-xs leading-5 text-[var(--oh-muted)]">
+            {t(I18nKey.SETTINGS$VERSION_TILE_VERSION, {
+              version: installedVersion,
+            })}
+          </span>
+        </span>
+        {updateAvailable ? (
+          <ArrowUpCircle
+            className="size-5 shrink-0 text-[#3B82F6]"
+            aria-hidden
+          />
+        ) : (
+          <CheckCircle2
+            className="size-5 shrink-0 text-[var(--oh-status-success)]"
+            aria-hidden
+          />
+        )}
+      </button>
+
+      {isModalOpen ? (
+        <AgentCanvasVersionModal
+          installedVersion={installedVersion}
+          latestVersion={latestVersion}
+          updateAvailable={updateAvailable}
+          isChecking={isChecking}
+          onCheckForUpdates={() => {
+            void checkForUpdates();
+          }}
+          onClose={() => setIsModalOpen(false)}
+        />
+      ) : null}
+    </>
+  );
+}

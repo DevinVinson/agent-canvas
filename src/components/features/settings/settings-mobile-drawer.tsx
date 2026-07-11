@@ -11,6 +11,7 @@ import { SettingsNavLink } from "./settings-nav-link";
 import { navInteractiveTransitionClassName } from "#/components/features/sidebar/sidebar-layout";
 import { BackendSyncedSettingsBadge } from "#/components/features/settings/backend-synced-settings-badge";
 import { CloudSettingsLink } from "#/components/features/settings/cloud-settings-link";
+import { AgentCanvasVersionTile } from "#/components/features/settings/agent-canvas-version-tile";
 
 interface SettingsMobileDrawerProps {
   isMobileMenuOpen: boolean;
@@ -40,12 +41,12 @@ export function SettingsMobileDrawer({
       <nav
         data-testid="settings-navbar"
         className={cn(
-          "flex flex-col gap-6 transition-transform duration-300 ease-in-out",
+          "flex min-h-0 flex-col gap-4 transition-transform duration-300 ease-in-out",
           "fixed inset-0 z-50 w-full bg-[var(--oh-surface-deep)] p-4 transform md:hidden",
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between">
           <div className="ml-1 flex items-center gap-2 sm:ml-4.5">
             <SettingsIcon width={16} height={16} />
             <Typography.H2>{t(I18nKey.SETTINGS$TITLE)}</Typography.H2>
@@ -63,7 +64,7 @@ export function SettingsMobileDrawer({
           </button>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
           {navigationItems.map((renderedItem, index) => {
             if (renderedItem.type === "header") {
               return (
@@ -91,8 +92,11 @@ export function SettingsMobileDrawer({
           <CloudSettingsLink />
         </div>
 
-        <div className="px-2 pt-3">
+        <div className="shrink-0 px-2">
           <BackendSyncedSettingsBadge />
+        </div>
+        <div className="shrink-0 px-2">
+          <AgentCanvasVersionTile />
         </div>
       </nav>
     </>

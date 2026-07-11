@@ -6,6 +6,7 @@ import { SettingsNavRenderedItem } from "#/hooks/use-settings-nav-items";
 import { SidebarNavLink } from "#/components/features/sidebar/sidebar-nav-link";
 import { BackendSyncedSettingsBadge } from "#/components/features/settings/backend-synced-settings-badge";
 import { CloudSettingsLink } from "#/components/features/settings/cloud-settings-link";
+import { AgentCanvasVersionTile } from "#/components/features/settings/agent-canvas-version-tile";
 
 interface SettingsDesktopSidebarProps {
   navigationItems: SettingsNavRenderedItem[];
@@ -30,7 +31,7 @@ export function SettingsDesktopSidebar({
       data-testid="settings-navbar-desktop"
       className={cn(
         "hidden md:flex md:w-[260px] md:shrink-0 md:flex-col md:gap-2",
-        "md:sticky md:top-8 md:self-start md:pl-8",
+        "md:sticky md:top-8 md:h-[calc(100vh-4rem)] md:self-start md:pl-8",
       )}
     >
       <Typography.Text className="px-2 text-sm font-normal text-white">
@@ -66,6 +67,9 @@ export function SettingsDesktopSidebar({
       </div>
       <div className="px-2 pt-3">
         <BackendSyncedSettingsBadge />
+      </div>
+      <div className="mt-auto px-2 pt-4">
+        <AgentCanvasVersionTile />
       </div>
     </aside>
   );
