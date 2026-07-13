@@ -39,7 +39,9 @@ export function useChatInputProfileState(): ChatInputProfileState {
   const creatingConversations = useIsMutating({
     mutationKey: CREATE_CONVERSATION_MUTATION_KEY,
   });
-  const isSwitching = activatingProfiles > 0 || creatingConversations > 0;
+  const isTaskRoute = conversationId?.startsWith("task-") ?? false;
+  const isSwitching =
+    isTaskRoute || activatingProfiles > 0 || creatingConversations > 0;
 
   const profiles = agentProfiles?.profiles ?? [];
   const isInConversation = Boolean(conversationId);
@@ -54,7 +56,7 @@ export function useChatInputProfileState(): ChatInputProfileState {
 
   const selectProfile = useCallback(
     (profile: AgentProfileSummary) => {
-      if (!profile.id || profile.id === currentProfileId) return;
+      if (isTaskRoute || !profile.id || profile.id === currentProfileId) return;
       if (!isInConversation) {
         activateProfile.mutate(profile.id);
         return;
@@ -93,6 +95,7 @@ export function useChatInputProfileState(): ChatInputProfileState {
       createConversation,
       currentProfileId,
       isInConversation,
+      isTaskRoute,
       navigate,
     ],
   );
@@ -102,7 +105,10 @@ export function useChatInputProfileState(): ChatInputProfileState {
     currentProfileId,
     currentProfileName,
     isInConversation,
-    isLoading: isLoadingProfiles || (isInConversation && isLoadingConversation),
+    isLoading:
+      isLoadingProfiles ||
+      isTaskRoute ||
+      (isInConversation && isLoadingConversation),
     isSwitching,
     selectProfile,
   };

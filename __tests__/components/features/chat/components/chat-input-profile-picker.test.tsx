@@ -67,6 +67,14 @@ describe("ChatInputProfilePicker", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("renders nothing while a cloud start task is provisioning", () => {
+    const { container } = renderWithProviders(<ChatInputProfilePicker />, {
+      navigation: { conversationId: "task-start-1" },
+    });
+
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("labels the button with the active profile", () => {
     renderHomePicker();
     expect(screen.getByTestId("chat-input-agent-profile")).toHaveTextContent(
