@@ -3,10 +3,21 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderWithProviders } from "test-utils";
 
 const useAgentProfilesMock = vi.fn();
+const useActiveConversationMock = vi.fn();
 const activateProfileMutate = vi.fn();
+const createConversationMutate = vi.fn();
 
 vi.mock("#/hooks/query/use-agent-profiles", () => ({
   useAgentProfiles: () => useAgentProfilesMock(),
+}));
+
+vi.mock("#/hooks/query/use-active-conversation", () => ({
+  useActiveConversation: () => useActiveConversationMock(),
+}));
+
+vi.mock("#/hooks/mutation/use-create-conversation", () => ({
+  useCreateConversation: () => ({ mutate: createConversationMutate }),
+  CREATE_CONVERSATION_MUTATION_KEY: ["create-conversation"],
 }));
 
 vi.mock("#/hooks/mutation/use-activate-agent-profile", () => ({
@@ -24,18 +35,27 @@ const PROFILES = [
   { id: "id-codex", name: "Codex", agent_kind: "acp" },
 ];
 
-// The picker is home-only (a running conversation shows the LLM-profile / model
-// picker instead), so selecting a profile activates it as the launch default.
 describe("ChatInputProfilePicker", () => {
   beforeEach(() => {
     useAgentProfilesMock.mockReset();
+    useActiveConversationMock.mockReset();
     activateProfileMutate.mockReset();
+    createConversationMutate.mockReset();
 
     useAgentProfilesMock.mockReturnValue({
       data: { profiles: PROFILES, active_agent_profile_id: "id-default" },
       isLoading: false,
     });
+    useActiveConversationMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+    });
   });
+
+  const renderHomePicker = () =>
+    renderWithProviders(<ChatInputProfilePicker />, {
+      navigation: { conversationId: null },
+    });
 
   it("renders nothing when there are no profiles", () => {
     useAgentProfilesMock.mockReturnValue({
@@ -43,19 +63,19 @@ describe("ChatInputProfilePicker", () => {
       isLoading: false,
     });
 
-    const { container } = renderWithProviders(<ChatInputProfilePicker />);
+    const { container } = renderHomePicker();
     expect(container).toBeEmptyDOMElement();
   });
 
   it("labels the button with the active profile", () => {
-    renderWithProviders(<ChatInputProfilePicker />);
+    renderHomePicker();
     expect(screen.getByTestId("chat-input-agent-profile")).toHaveTextContent(
       "Default",
     );
   });
 
   it("activates the picked profile", () => {
-    renderWithProviders(<ChatInputProfilePicker />);
+    renderHomePicker();
     fireEvent.click(screen.getByTestId("chat-input-agent-profile"));
     fireEvent.click(
       screen.getByTestId("chat-input-agent-profile-option-Codex"),
@@ -65,7 +85,7 @@ describe("ChatInputProfilePicker", () => {
   });
 
   it("does not activate when the active profile is re-selected", () => {
-    renderWithProviders(<ChatInputProfilePicker />);
+    renderHomePicker();
     fireEvent.click(screen.getByTestId("chat-input-agent-profile"));
     fireEvent.click(
       screen.getByTestId("chat-input-agent-profile-option-Default"),
@@ -75,11 +95,113 @@ describe("ChatInputProfilePicker", () => {
   });
 
   it("links to the AgentProfile library in settings", () => {
-    const { container } = renderWithProviders(<ChatInputProfilePicker />);
+    const { container } = renderHomePicker();
     fireEvent.click(screen.getByTestId("chat-input-agent-profile"));
 
     expect(
       container.ownerDocument.querySelector('a[href="/settings/agents"]'),
     ).not.toBeNull();
+  });
+
+  it("shows the launched profile inside a blank conversation", () => {
+    useAgentProfilesMock.mockReturnValue({
+      data: { profiles: PROFILES, active_agent_profile_id: "id-codex" },
+      isLoading: false,
+    });
+    useActiveConversationMock.mockReturnValue({
+      data: {
+        id: "conv-1",
+        launched_agent_profile: {
+          agent_profile_id: "id-default",
+          revision: 2,
+        },
+      },
+      isLoading: false,
+    });
+
+    renderWithProviders(<ChatInputProfilePicker />, {
+      navigation: { conversationId: "conv-1" },
+    });
+
+    expect(screen.getByTestId("chat-input-agent-profile")).toHaveTextContent(
+      "Default",
+    );
+  });
+
+  it("starts a replacement conversation with the selected profile and workspace", () => {
+    const navigate = vi.fn();
+    useActiveConversationMock.mockReturnValue({
+      data: {
+        id: "conv-workspace",
+        selected_repository: null,
+        selected_workspace: "/workspace/alpha",
+        launched_agent_profile: {
+          agent_profile_id: "id-default",
+          revision: 1,
+        },
+      },
+      isLoading: false,
+    });
+
+    renderWithProviders(<ChatInputProfilePicker />, {
+      navigation: { conversationId: "conv-workspace", navigate },
+    });
+    fireEvent.click(screen.getByTestId("chat-input-agent-profile"));
+
+    expect(screen.getByText("CHAT$START_NEW_WITH_PROFILE_HINT")).toBeVisible();
+    fireEvent.click(
+      screen.getByTestId("chat-input-agent-profile-option-Codex"),
+    );
+
+    expect(createConversationMutate).toHaveBeenCalledWith(
+      {
+        agentProfileId: "id-codex",
+        entryPoint: "blank_conversation_profile_picker",
+        workingDir: "/workspace/alpha",
+        workspaceMode: "local_repo",
+      },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    );
+    expect(activateProfileMutate).not.toHaveBeenCalled();
+
+    const onSuccess = createConversationMutate.mock.calls[0]?.[1]?.onSuccess;
+    onSuccess({ conversation_id: "conv-2" });
+    expect(navigate).toHaveBeenCalledWith("/conversations/conv-2");
+  });
+
+  it("preserves repository context when changing a blank conversation profile", () => {
+    useActiveConversationMock.mockReturnValue({
+      data: {
+        id: "conv-repo",
+        selected_repository: "OpenHands/agent-canvas",
+        selected_branch: "feature",
+        git_provider: "github",
+        launched_agent_profile: {
+          agent_profile_id: "id-default",
+          revision: 1,
+        },
+      },
+      isLoading: false,
+    });
+
+    renderWithProviders(<ChatInputProfilePicker />, {
+      navigation: { conversationId: "conv-repo" },
+    });
+    fireEvent.click(screen.getByTestId("chat-input-agent-profile"));
+    fireEvent.click(
+      screen.getByTestId("chat-input-agent-profile-option-Codex"),
+    );
+
+    expect(createConversationMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentProfileId: "id-codex",
+        repository: {
+          name: "OpenHands/agent-canvas",
+          gitProvider: "github",
+          branch: "feature",
+        },
+      }),
+      expect.any(Object),
+    );
   });
 });

@@ -28,7 +28,7 @@ import {
   type WorkspaceMode,
 } from "#/api/conversation-metadata-store";
 
-interface CreateConversationVariables {
+export interface CreateConversationVariables {
   query?: string;
   repository?: {
     name: string;
@@ -48,6 +48,8 @@ interface CreateConversationVariables {
   agentProfileId?: string;
   entryPoint?: string; // analytics only; not forwarded to the service
 }
+
+export const CREATE_CONVERSATION_MUTATION_KEY = ["create-conversation"];
 
 interface CreateConversationResponse {
   conversation_id: string;
@@ -73,7 +75,7 @@ export const useCreateConversation = () => {
   useAgentProfiles();
 
   return useMutation({
-    mutationKey: ["create-conversation"],
+    mutationKey: CREATE_CONVERSATION_MUTATION_KEY,
     mutationFn: async (
       variables: CreateConversationVariables,
     ): Promise<CreateConversationResponse> => {
