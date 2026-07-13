@@ -25,6 +25,7 @@ import { pluginReferenceKey } from "#/utils/plugin-display";
 import {
   getStoredConversationMetadata,
   setStoredConversationMetadata,
+  toPluginCoordinates,
   type WorkspaceMode,
 } from "#/api/conversation-metadata-store";
 
@@ -240,12 +241,7 @@ export const useCreateConversation = () => {
       //   1. plugins explicitly attached at creation (e.g. the /launch flow);
       //   2. enabled installed plugins, which the SDK auto-loads into every new
       //      local conversation (see use-set-plugin-enabled).
-      const explicitPlugins =
-        plugins?.map((plugin) => ({
-          source: plugin.source,
-          ref: plugin.ref ?? null,
-          repo_path: plugin.repo_path ?? null,
-        })) ?? [];
+      const explicitPlugins = plugins?.map(toPluginCoordinates) ?? [];
       let attachedPlugins: PluginSpec[] = explicitPlugins;
       if (localConversationId) {
         let installed: InstalledPluginInfo[] = [];

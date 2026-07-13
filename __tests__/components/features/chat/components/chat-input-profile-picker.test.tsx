@@ -1,6 +1,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderWithProviders } from "test-utils";
+import { setStoredConversationMetadata } from "#/api/conversation-metadata-store";
 
 const useAgentProfilesMock = vi.fn();
 const useActiveConversationMock = vi.fn();
@@ -41,6 +42,7 @@ describe("ChatInputProfilePicker", () => {
     useActiveConversationMock.mockReset();
     activateProfileMutate.mockReset();
     createConversationMutate.mockReset();
+    localStorage.clear();
 
     useAgentProfilesMock.mockReturnValue({
       data: { profiles: PROFILES, active_agent_profile_id: "id-default" },
@@ -177,7 +179,19 @@ describe("ChatInputProfilePicker", () => {
     expect(navigate).toHaveBeenCalledWith("/conversations/conv-2");
   });
 
-  it("preserves repository context when changing a blank conversation profile", () => {
+  it("preserves repository and plugin context when changing a blank conversation profile", () => {
+    setStoredConversationMetadata("conv-repo", {
+      selected_repository: "OpenHands/agent-canvas",
+      selected_branch: "feature",
+      git_provider: "github",
+      plugins: [
+        {
+          source: "github:OpenHands/extensions",
+          ref: "v1",
+          repo_path: "plugins/weather",
+        },
+      ],
+    });
     useActiveConversationMock.mockReturnValue({
       data: {
         id: "conv-repo",
@@ -208,6 +222,13 @@ describe("ChatInputProfilePicker", () => {
           gitProvider: "github",
           branch: "feature",
         },
+        plugins: [
+          {
+            source: "github:OpenHands/extensions",
+            ref: "v1",
+            repo_path: "plugins/weather",
+          },
+        ],
       }),
       expect.any(Object),
     );
