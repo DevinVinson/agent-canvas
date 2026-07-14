@@ -48,6 +48,9 @@ const LOCAL_AGENT_SERVER_SUBDIRS = [
   "openhands-workspace",
 ];
 const DEFAULT_AGENT_SERVER_VERSION = SHARED_DEFAULTS.versions.agentServer;
+// LiteLLM's current native build does not support Python 3.14. Request a
+// known-compatible interpreter for uvx until the SDK dependency graph does.
+const DEFAULT_AGENT_SERVER_PYTHON = "3.13";
 // Temporary transitive-dep pin: openhands-sdk 1.35.0 leaves agent-client-protocol
 // unbounded (>=0.10.1), but acp 0.11.0 reordered the ACP prompt() args and breaks
 // the SDK's ACP client. Hold acp <0.11 until a fixed SDK ships. See config/defaults.json.
@@ -400,6 +403,7 @@ export function validateFrontendDependencies(
  *   is rebuilt from local source on each invocation (--reinstall).
  * - OH_AGENT_SERVER_GIT_REF: Git commit SHA or branch name
  * - OH_AGENT_SERVER_VERSION: Specific PyPI version (e.g., "1.35.0")
+ * - OH_AGENT_SERVER_PYTHON: Python version or interpreter for uvx (default: "3.13")
  *
  * If none are set, defaults to the released version specified by
  * DEFAULT_AGENT_SERVER_VERSION. Set OH_AGENT_SERVER_GIT_REF to use a
@@ -412,8 +416,11 @@ export function buildAgentServerCommand(env = process.env) {
   const localPath = env.OH_AGENT_SERVER_LOCAL_PATH;
   const gitRef = env.OH_AGENT_SERVER_GIT_REF;
   const version = env.OH_AGENT_SERVER_VERSION;
+  const python = env.OH_AGENT_SERVER_PYTHON || DEFAULT_AGENT_SERVER_PYTHON;
 
-  const uvxArgs = [];
+  // uvx tools ignore project-level Python requests, so the launcher must
+  // request a compatible runtime explicitly. uv installs it when necessary.
+  const uvxArgs = ["--python", python];
   let source = "";
 
   if (localPath) {

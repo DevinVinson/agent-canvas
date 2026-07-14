@@ -84,6 +84,7 @@ const DEFAULT_AUTOMATION_REPO = "https://github.com/OpenHands/automation";
 const DEFAULT_AUTOMATION_PACKAGE = SHARED_DEFAULTS.packages.automation;
 const DEFAULT_AUTOMATION_VERSION = SHARED_DEFAULTS.versions.automation;
 const DEFAULT_AUTOMATION_SDK_VERSION = SHARED_DEFAULTS.versions.agentServer;
+const DEFAULT_AUTOMATION_PYTHON = "3.13";
 const DEFAULT_BACKEND_PORT = SHARED_DEFAULTS.ports.agentServer;
 const DEFAULT_AUTOMATION_PORT = SHARED_DEFAULTS.ports.automation;
 
@@ -250,9 +251,11 @@ ENVIRONMENT VARIABLES:
   PORT                        Alternative to --port
   OH_AUTOMATION_GIT_REF       Git ref for automation (overrides default version)
   OH_AUTOMATION_VERSION       Specific PyPI version for automation (default: ${DEFAULT_AUTOMATION_VERSION})
+  OH_AUTOMATION_PYTHON        Python version for automation uvx (default: 3.13)
   OH_AGENT_SERVER_LOCAL_PATH  Absolute path to a local software-agent-sdk checkout (highest precedence)
   OH_AGENT_SERVER_GIT_REF     Git ref for agent-server SDK (overrides default version)
   OH_AGENT_SERVER_VERSION     Specific PyPI version for agent-server
+  OH_AGENT_SERVER_PYTHON      Python version for agent-server uvx (default: 3.13)
   OH_SECRET_KEY               Secret key for sessions
 
 SECRETS:
@@ -274,6 +277,7 @@ ACCESS POINTS:
  * Environment variables (highest precedence first):
  * - OH_AUTOMATION_GIT_REF: Git commit SHA or branch name
  * - OH_AUTOMATION_VERSION: Specific PyPI version (e.g., "1.0.0a1")
+ * - OH_AUTOMATION_PYTHON: Python version or interpreter for uvx (default: "3.13")
  *
  * If none are set, defaults to the released version specified by
  * DEFAULT_AUTOMATION_VERSION. Set OH_AUTOMATION_GIT_REF to use a
@@ -283,8 +287,9 @@ function buildAutomationCommand(env = process.env) {
   const gitRef = env.OH_AUTOMATION_GIT_REF;
   const version = env.OH_AUTOMATION_VERSION;
   const repoUrl = env.OH_AUTOMATION_REPO || DEFAULT_AUTOMATION_REPO;
+  const python = env.OH_AUTOMATION_PYTHON || DEFAULT_AUTOMATION_PYTHON;
 
-  const uvxArgs = [];
+  const uvxArgs = ["--python", python];
   let source = "";
 
   if (gitRef) {

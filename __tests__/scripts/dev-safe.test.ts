@@ -388,6 +388,8 @@ describe("buildAgentServerCommand", () => {
     expect(cmd.command).toBe("uvx");
     // Defaults to the released PyPI version with all SDK packages pinned to same version
     expect(cmd.args).toEqual([
+      "--python",
+      "3.13",
       "--from",
       "openhands-agent-server==1.35.0",
       "--with",
@@ -410,6 +412,8 @@ describe("buildAgentServerCommand", () => {
     // Uses --from syntax because executable name (agent-server) differs from package name (openhands-agent-server)
     // All SDK packages are pinned to the same version
     expect(cmd.args).toEqual([
+      "--python",
+      "3.13",
       "--from",
       "openhands-agent-server==1.18.0",
       "--with",
@@ -432,6 +436,8 @@ describe("buildAgentServerCommand", () => {
 
     expect(cmd.command).toBe("uvx");
     expect(cmd.args).toEqual([
+      "--python",
+      "3.13",
       "--reinstall",
       "--from",
       "git+https://github.com/OpenHands/software-agent-sdk@feature-branch#subdirectory=openhands-agent-server",
@@ -451,6 +457,8 @@ describe("buildAgentServerCommand", () => {
 
     expect(cmd.command).toBe("uvx");
     expect(cmd.args).toEqual([
+      "--python",
+      "3.13",
       "--reinstall",
       "--from",
       "git+https://github.com/OpenHands/software-agent-sdk@abc1234#subdirectory=openhands-agent-server",
@@ -485,6 +493,8 @@ describe("buildAgentServerCommand", () => {
 
     expect(cmd.command).toBe("uvx");
     expect(cmd.args).toEqual([
+      "--python",
+      "3.13",
       "--reinstall",
       "--from",
       path.join(sdk, "openhands-agent-server"),
@@ -513,6 +523,12 @@ describe("buildAgentServerCommand", () => {
       "git+https://github.com/OpenHands/software-agent-sdk@feature-branch#subdirectory=openhands-agent-server",
     );
     expect(cmd.args).not.toContain("openhands-agent-server==1.18.0");
+  });
+
+  it("honors OH_AGENT_SERVER_PYTHON", () => {
+    const cmd = buildAgentServerCommand({ OH_AGENT_SERVER_PYTHON: "3.12" });
+
+    expect(cmd.args.slice(0, 2)).toEqual(["--python", "3.12"]);
   });
 
   it("rejects relative OH_AGENT_SERVER_LOCAL_PATH", () => {

@@ -40,6 +40,7 @@ describe("buildAutomationCommand", () => {
     const cmd = buildAutomationCommand({});
 
     expect(cmd.command).toBe("uvx");
+    expect(cmd.args.slice(0, 2)).toEqual(["--python", "3.13"]);
     expect(cmd.args).toContain("--from");
     expect(cmd.args).toContain(
       `${DEFAULT_AUTOMATION_PACKAGE}==${DEFAULT_AUTOMATION_VERSION}`,
@@ -105,6 +106,12 @@ describe("buildAutomationCommand", () => {
     expect(cmd.command).toBe("uvx");
     expect(cmd.args).toContain(`${DEFAULT_AUTOMATION_PACKAGE}==1.0.0`);
     expect(cmd.source).toBe("PyPI (1.0.0)");
+  });
+
+  it("honors OH_AUTOMATION_PYTHON", () => {
+    const cmd = buildAutomationCommand({ OH_AUTOMATION_PYTHON: "3.12" });
+
+    expect(cmd.args.slice(0, 2)).toEqual(["--python", "3.12"]);
   });
 
   it("git ref takes precedence over version", () => {

@@ -47,8 +47,9 @@ Default ports:
   automation:      ${defaults.ports.automation}
 
 Override versions via environment variables:
-  OH_AGENT_SERVER_VERSION, OH_AGENT_SERVER_GIT_REF, OH_AGENT_SERVER_LOCAL_PATH
-  OH_AUTOMATION_VERSION, OH_AUTOMATION_GIT_REF`);
+  OH_AGENT_SERVER_VERSION, OH_AGENT_SERVER_GIT_REF, OH_AGENT_SERVER_LOCAL_PATH,
+  OH_AGENT_SERVER_PYTHON (default: 3.13)
+  OH_AUTOMATION_VERSION, OH_AUTOMATION_GIT_REF, OH_AUTOMATION_PYTHON (default: 3.13)`);
   process.exit(0);
 }
 const isPublic = args.includes("--public");
@@ -90,6 +91,8 @@ ENVIRONMENT VARIABLES:
   OH_AGENT_SERVER_GIT_REF      Git ref for agent-server
   OH_AGENT_SERVER_LOCAL_PATH   Path to local SDK checkout (for development)
   OH_AGENT_SERVER_VERSION      Specific PyPI version for agent-server
+  OH_AGENT_SERVER_PYTHON       Python version for agent-server uvx (default: 3.13)
+  OH_AUTOMATION_PYTHON         Python version for automation uvx (default: 3.13)
 
 Note: LLM settings are configured through the web UI settings page,
 not environment variables.

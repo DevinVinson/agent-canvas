@@ -162,7 +162,9 @@ OPTIONS:
 ENVIRONMENT VARIABLES:
   PORT                        Alternative to --port
   OH_AUTOMATION_GIT_REF       Alternative to --automation-ref
+  OH_AUTOMATION_PYTHON        Python version for automation uvx (default: 3.13)
   OH_AGENT_SERVER_GIT_REF     Git ref for agent-server SDK
+  OH_AGENT_SERVER_PYTHON      Python version for agent-server uvx (default: 3.13)
   OH_SECRET_KEY               Secret key for sessions
 
 ACCESS POINTS:

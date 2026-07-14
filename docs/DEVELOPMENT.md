@@ -40,7 +40,9 @@ it instead.
 | ------------------------- | ------------------------------ | ------- |
 | `PORT`                    | Ingress port                   | `8000`  |
 | `OH_AUTOMATION_GIT_REF`   | Git ref for automation backend | `main`  |
+| `OH_AUTOMATION_PYTHON` | Python version for automation `uvx` | `3.13` |
 | `OH_AGENT_SERVER_GIT_REF` | Git ref for agent-server       | `main`  |
+| `OH_AGENT_SERVER_PYTHON` | Python version for agent-server `uvx` | `3.13` |
 
 ### Alternative: Minimal Mode (without Automation)
 
@@ -67,6 +69,9 @@ OH_AGENT_SERVER_GIT_REF=abc1234 npm run dev
 
 # Use a specific PyPI version
 OH_AGENT_SERVER_VERSION=1.18.0 npm run dev
+
+# Override the Python runtime used by agent-server's isolated uvx environment
+OH_AGENT_SERVER_PYTHON=3.12 npm run dev
 ```
 
 `OH_AGENT_SERVER_LOCAL_PATH` must be an absolute path to a `software-agent-sdk` checkout containing the `openhands-agent-server`, `openhands-sdk`, `openhands-tools`, and `openhands-workspace` workspace packages. The agent-server itself is rebuilt from local source on each start (`uvx --reinstall`); the other workspace packages are installed editable, so their source changes take effect without a rebuild.
