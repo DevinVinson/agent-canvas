@@ -25,6 +25,7 @@ import {
 vi.mock("#/api/automation-service/automation-service.api", () => ({
   default: {
     getAutomations: vi.fn(),
+    getAutomationRuns: vi.fn(),
     updateAutomation: vi.fn(),
     toggleAutomation: vi.fn(),
     deleteAutomation: vi.fn(),
@@ -75,7 +76,10 @@ function renderList(queryClient?: QueryClient) {
   const client =
     queryClient ??
     new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     });
   return render(
     <QueryClientProvider client={client}>
@@ -95,6 +99,11 @@ beforeEach(() => {
   vi.mocked(AutomationService.checkHealth).mockResolvedValue({ status: "ok" });
   vi.mocked(AutomationService.getAutomations).mockReset();
   vi.mocked(AutomationService.getAutomations).mockResolvedValue(listResponse);
+  vi.mocked(AutomationService.getAutomationRuns).mockReset();
+  vi.mocked(AutomationService.getAutomationRuns).mockResolvedValue({
+    runs: [],
+    total: 0,
+  });
   vi.mocked(AutomationService.updateAutomation).mockReset();
   vi.mocked(AutomationService.dispatchAutomation).mockReset();
   setRegisteredBackends([localBackend, cloudBackend]);
@@ -280,9 +289,7 @@ describe("AutomationsList — Run now toasts", () => {
     });
     const user = userEvent.setup();
     renderList();
-    await screen.findByTestId(
-      `automation-list-row-${disabledAutomation.id}`,
-    );
+    await screen.findByTestId(`automation-list-row-${disabledAutomation.id}`);
     const button = screen.getByTestId(
       `automation-run-now-${disabledAutomation.id}`,
     );
@@ -338,7 +345,10 @@ describe("AutomationsList — list freshness on remount", () => {
         total: 2,
       });
     const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     });
 
     // Act — first mount lands on the original list, then unmount and remount

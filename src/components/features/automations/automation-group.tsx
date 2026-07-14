@@ -11,6 +11,7 @@ import {
   extensionModuleCardGridClassName,
   extensionModuleCardGridContainerClassName,
 } from "#/utils/extension-module-card-classes";
+import type { AutomationRunSummary } from "#/hooks/query/use-automation-run-summaries";
 
 interface AutomationGroupProps {
   title: string;
@@ -23,6 +24,7 @@ interface AutomationGroupProps {
   onDelete: (id: string) => void;
   onExport: (automation: Automation) => void;
   onEdit?: (id: string) => void;
+  runSummaries?: Map<string, AutomationRunSummary>;
 }
 
 export function AutomationGroup({
@@ -36,6 +38,7 @@ export function AutomationGroup({
   onDelete,
   onExport,
   onEdit,
+  runSummaries,
 }: AutomationGroupProps) {
   if (automations.length === 0) return null;
 
@@ -58,6 +61,7 @@ export function AutomationGroup({
                 onDelete={onDelete}
                 onExport={onExport}
                 onEdit={onEdit}
+                runSummary={runSummaries?.get(automation.id)}
               />
             ))}
           </div>
@@ -76,6 +80,7 @@ export function AutomationGroup({
                   onDelete={onDelete}
                   onExport={onExport}
                   onEdit={onEdit}
+                  runSummary={runSummaries?.get(automation.id)}
                 />
               ))}
             </tbody>

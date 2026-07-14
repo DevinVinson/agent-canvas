@@ -18,6 +18,19 @@ import {
   automationListRowClassName,
   automationListCellClassName,
 } from "./automation-view-mode";
+import type { AutomationRunSummary } from "#/hooks/query/use-automation-run-summaries";
+import {
+  AutomationHealthBadge,
+  formatCompactDuration,
+  formatLastRun,
+  getAutomationHealth,
+} from "./automation-health";
+
+const ROW_COPY = {
+  lastRun: "Last run",
+  runs: "runs",
+  average: "avg.",
+} as const;
 
 interface AutomationListRowProps {
   automation: Automation;
@@ -27,6 +40,7 @@ interface AutomationListRowProps {
   onDelete: (id: string) => void;
   onExport: (automation: Automation) => void;
   onEdit?: (id: string) => void;
+  runSummary?: AutomationRunSummary;
 }
 
 export function AutomationListRow({
@@ -37,6 +51,7 @@ export function AutomationListRow({
   onDelete,
   onExport,
   onEdit,
+  runSummary,
 }: AutomationListRowProps) {
   const { navigate } = useNavigation();
   const { t } = useTranslation("openhands");
@@ -65,6 +80,9 @@ export function AutomationListRow({
     onToggle,
     onDelete,
   });
+  const health = getAutomationHealth(automation, runSummary);
+  const lastRunAt =
+    runSummary?.latestRun?.started_at ?? automation.last_triggered_at;
 
   const handleRowClick = () => {
     handleView();
@@ -83,27 +101,67 @@ export function AutomationListRow({
       className={cn(automationListRowClassName, "cursor-pointer")}
     >
       <td className={automationListCellClassName}>
-        <div className="flex min-w-0 items-center gap-1.5">
-          {automation.trigger.type === "event" ? (
-            <GlobeIcon className="size-4 shrink-0 text-muted" />
-          ) : (
-            <ClockIcon className="size-4 shrink-0 text-muted" />
-          )}
-          <span
-            className="max-w-[40%] shrink-0 truncate text-sm font-medium text-white"
-            title={automation.name}
-          >
-            {automation.name}
-          </span>
-          {pills.length > 0 ? (
-            <div className="min-w-0 flex-1">
-              <SkillCardPillRow
-                pills={pills}
-                testId={`automation-pills-${automation.id}`}
-              />
-            </div>
-          ) : null}
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {automation.trigger.type === "event" ? (
+              <GlobeIcon className="size-4 shrink-0 text-muted" />
+            ) : (
+              <ClockIcon className="size-4 shrink-0 text-muted" />
+            )}
+            <span
+              className="max-w-[40%] shrink-0 truncate text-sm font-medium text-white"
+              title={automation.name}
+            >
+              {automation.name}
+            </span>
+            {pills.length > 0 ? (
+              <div className="min-w-0 flex-1">
+                <SkillCardPillRow
+                  pills={pills}
+                  testId={`automation-pills-${automation.id}`}
+                />
+              </div>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 md:hidden">
+            <AutomationHealthBadge health={health} />
+            <span className="text-xs text-tertiary-alt">
+              {ROW_COPY.lastRun} {formatLastRun(lastRunAt)}
+            </span>
+          </div>
         </div>
+      </td>
+
+      <td
+        className={cn(
+          "hidden whitespace-nowrap md:table-cell",
+          automationListCellClassName,
+        )}
+      >
+        <AutomationHealthBadge health={health} />
+      </td>
+      <td
+        className={cn(
+          "hidden whitespace-nowrap text-xs text-tertiary-light md:table-cell",
+          automationListCellClassName,
+        )}
+      >
+        {formatLastRun(lastRunAt)}
+      </td>
+      <td
+        className={cn(
+          "hidden whitespace-nowrap text-right text-xs text-tertiary-light lg:table-cell",
+          automationListCellClassName,
+        )}
+      >
+        {runSummary?.isLoading
+          ? "…"
+          : (runSummary?.total ?? 0).toLocaleString()}{" "}
+        {ROW_COPY.runs}
+        <span className="ml-3 text-tertiary-alt">
+          {formatCompactDuration(runSummary?.averageDurationMs ?? null)}{" "}
+          {ROW_COPY.average}
+        </span>
       </td>
 
       <td className={cn("w-0 whitespace-nowrap", automationListCellClassName)}>

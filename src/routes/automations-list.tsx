@@ -39,7 +39,6 @@ import { DeleteConfirmationModal } from "#/components/features/automations/delet
 import { EditAutomationModal } from "#/components/features/automations/detail/edit-automation-modal";
 import { AddAutomationModal } from "#/components/features/automations/add-automation-modal";
 import { ImportAutomationModal } from "#/components/features/automations/import-automation-modal";
-import { RecommendedAutomationsLauncher } from "#/components/features/automations/recommended-automations-launcher";
 import { BrandButton } from "#/components/features/settings/brand-button";
 import { useTracking } from "#/hooks/use-tracking";
 import type { Automation, AutomationSpec } from "#/types/automation";
@@ -49,8 +48,37 @@ import {
   serializeAutomation,
 } from "#/utils/automation-export";
 import { downloadBlob } from "#/utils/utils";
+import { AutomationDashboardOverview } from "#/components/features/automations/automation-dashboard-overview";
+import { useAutomationRunSummaries } from "#/hooks/query/use-automation-run-summaries";
+import { getAutomationHealth } from "#/components/features/automations/automation-health";
+import { AutomationsPageLayout } from "#/components/features/automations/automations-page-layout";
 
 const PAGE_SIZE = 50;
+const SELECT_CLASS_NAME =
+  "h-9 rounded-lg border border-[var(--oh-border)] bg-base-secondary px-3 text-sm text-white outline-none focus:border-white/40 focus:ring-1 focus:ring-white/20";
+const DASHBOARD_COPY = {
+  title: "Dashboard",
+  subtitle: "Health, activity, and run performance across your automations.",
+  filterStatus: "Filter by status",
+  allStatuses: "All statuses",
+  active: "Active",
+  needsAttention: "Needs attention",
+  disabled: "Disabled",
+  filterTrigger: "Filter by trigger",
+  allTriggers: "All triggers",
+  scheduled: "Scheduled",
+  eventDriven: "Event-driven",
+  sort: "Sort automations",
+  latestRun: "Latest run",
+  mostRuns: "Most runs",
+  name: "Name",
+  noMatches: "No automations match these filters",
+  clearFilters: "Clear filters",
+} as const;
+
+type StatusFilter = "all" | "active" | "failing" | "disabled";
+type TriggerFilter = "all" | "schedule" | "event";
+type DashboardSort = "last-run" | "name" | "runs";
 
 export default function AutomationsList() {
   const { t } = useTranslation("openhands");
@@ -59,6 +87,9 @@ export default function AutomationsList() {
     readStoredAutomationViewMode(),
   );
   const [limit, setLimit] = useState(PAGE_SIZE);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [triggerFilter, setTriggerFilter] = useState<TriggerFilter>("all");
+  const [sortBy, setSortBy] = useState<DashboardSort>("last-run");
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     name: string;
@@ -93,19 +124,70 @@ export default function AutomationsList() {
   const deleteMutation = useDeleteAutomation();
   const dispatchMutation = useDispatchAutomation();
   const importMutation = useImportAutomation();
+  const automationIds = useMemo(
+    () => data?.automations.map(({ id }) => id) ?? [],
+    [data?.automations],
+  );
+  const runSummaries = useAutomationRunSummaries(
+    automationIds,
+    isBackendHealthy,
+  );
 
   const filtered = useMemo(() => {
     if (!data?.automations) return [];
     const q = searchQuery.toLowerCase();
-    if (!q) return data.automations;
-    return data.automations.filter(
-      (a) =>
-        a.name.toLowerCase().includes(q) ||
-        (a.prompt ?? "").toLowerCase().includes(q) ||
-        a.repository?.toLowerCase().includes(q) ||
-        a.model?.toLowerCase().includes(q),
-    );
-  }, [data?.automations, searchQuery]);
+    const matches = data.automations.filter((automation) => {
+      const matchesSearch =
+        !q ||
+        automation.name.toLowerCase().includes(q) ||
+        (automation.prompt ?? "").toLowerCase().includes(q) ||
+        automation.repository?.toLowerCase().includes(q) ||
+        automation.model?.toLowerCase().includes(q);
+      const matchesTrigger =
+        triggerFilter === "all" ||
+        (triggerFilter === "event"
+          ? automation.trigger.type === "event"
+          : automation.trigger.type !== "event");
+      const health = getAutomationHealth(
+        automation,
+        runSummaries.get(automation.id),
+      );
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && automation.enabled) ||
+        (statusFilter === "disabled" && !automation.enabled) ||
+        (statusFilter === "failing" && health === "failing");
+      return matchesSearch && matchesTrigger && matchesStatus;
+    });
+
+    return [...matches].sort((left, right) => {
+      if (sortBy === "name") return left.name.localeCompare(right.name);
+      if (sortBy === "runs") {
+        return (
+          (runSummaries.get(right.id)?.total ?? 0) -
+          (runSummaries.get(left.id)?.total ?? 0)
+        );
+      }
+      const rightTime = new Date(
+        runSummaries.get(right.id)?.latestRun?.started_at ??
+          right.last_triggered_at ??
+          0,
+      ).getTime();
+      const leftTime = new Date(
+        runSummaries.get(left.id)?.latestRun?.started_at ??
+          left.last_triggered_at ??
+          0,
+      ).getTime();
+      return rightTime - leftTime;
+    });
+  }, [
+    data?.automations,
+    runSummaries,
+    searchQuery,
+    sortBy,
+    statusFilter,
+    triggerFilter,
+  ]);
 
   const activeAutomations = useMemo(
     () => filtered.filter((a) => a.enabled),
@@ -239,53 +321,47 @@ export default function AutomationsList() {
   // Show loading state while checking health
   if (isHealthLoading) {
     return (
-      <div className="min-h-full">
-        <div className="p-6 max-w-4xl mx-auto">
-          <h1 className="text-xl font-medium text-content">
-            {t(I18nKey.AUTOMATIONS$TITLE)}
+      <AutomationsPageLayout>
+        <div>
+          <h1 className="text-xl font-semibold text-content">
+            {DASHBOARD_COPY.title}
           </h1>
-          <p className="mt-1 text-sm text-muted">
-            {t(I18nKey.AUTOMATIONS$SUBTITLE)}
-          </p>
-          <div className="mt-6 flex flex-col gap-3">
+          <p className="mt-1 text-sm text-muted">{DASHBOARD_COPY.subtitle}</p>
+          <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-2">
             {Array.from({ length: 3 }).map((_, i) => (
               <AutomationCardSkeleton key={`skeleton-${String(i)}`} />
             ))}
           </div>
         </div>
-      </div>
+      </AutomationsPageLayout>
     );
   }
 
   // Show backend not configured state if health check failed
   if (!isBackendHealthy) {
     return (
-      <div className="min-h-full">
-        <div className="p-6 max-w-4xl mx-auto">
-          <h1 className="text-xl font-medium text-content">
-            {t(I18nKey.AUTOMATIONS$TITLE)}
+      <AutomationsPageLayout>
+        <div>
+          <h1 className="text-xl font-semibold text-content">
+            {DASHBOARD_COPY.title}
           </h1>
-          <p className="mt-1 text-sm text-muted">
-            {t(I18nKey.AUTOMATIONS$SUBTITLE)}
-          </p>
+          <p className="mt-1 text-sm text-muted">{DASHBOARD_COPY.subtitle}</p>
           <BackendNotConfigured onRetry={refetchHealth} />
         </div>
-      </div>
+      </AutomationsPageLayout>
     );
   }
 
   return (
-    <div className="min-h-full">
-      <div className="p-6 max-w-4xl mx-auto">
+    <AutomationsPageLayout>
+      <div>
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
           <div className="min-w-0">
             <h1 className="text-xl font-semibold text-content">
-              {t(I18nKey.AUTOMATIONS$TITLE)}
+              {DASHBOARD_COPY.title}
             </h1>
-            <p className="mt-1 text-sm text-muted">
-              {t(I18nKey.AUTOMATIONS$SUBTITLE)}
-            </p>
+            <p className="mt-1 text-sm text-muted">{DASHBOARD_COPY.subtitle}</p>
           </div>
           <div className="flex shrink-0 flex-wrap justify-end gap-2">
             <BrandButton
@@ -318,9 +394,61 @@ export default function AutomationsList() {
           </div>
         </div>
 
+        {!isLoading && !isError && data ? (
+          <div className="mt-6">
+            <AutomationDashboardOverview
+              automations={data.automations}
+              summaries={runSummaries}
+            />
+          </div>
+        ) : null}
+
         {/* Search */}
-        <div className="mt-6 flex items-stretch gap-2">
-          <SearchInput value={searchQuery} onChange={setSearchQuery} />
+        <div className="mt-6 flex flex-col gap-2 lg:flex-row lg:items-stretch">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            className="lg:max-w-md"
+          />
+          <div className="flex flex-wrap items-stretch gap-2 lg:ml-auto">
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as StatusFilter)
+              }
+              className={SELECT_CLASS_NAME}
+              aria-label={DASHBOARD_COPY.filterStatus}
+            >
+              <option value="all">{DASHBOARD_COPY.allStatuses}</option>
+              <option value="active">{DASHBOARD_COPY.active}</option>
+              <option value="failing">{DASHBOARD_COPY.needsAttention}</option>
+              <option value="disabled">{DASHBOARD_COPY.disabled}</option>
+            </select>
+            <select
+              value={triggerFilter}
+              onChange={(event) =>
+                setTriggerFilter(event.target.value as TriggerFilter)
+              }
+              className={SELECT_CLASS_NAME}
+              aria-label={DASHBOARD_COPY.filterTrigger}
+            >
+              <option value="all">{DASHBOARD_COPY.allTriggers}</option>
+              <option value="schedule">{DASHBOARD_COPY.scheduled}</option>
+              <option value="event">{DASHBOARD_COPY.eventDriven}</option>
+            </select>
+            <select
+              value={sortBy}
+              onChange={(event) =>
+                setSortBy(event.target.value as DashboardSort)
+              }
+              className={SELECT_CLASS_NAME}
+              aria-label={DASHBOARD_COPY.sort}
+            >
+              <option value="last-run">{DASHBOARD_COPY.latestRun}</option>
+              <option value="runs">{DASHBOARD_COPY.mostRuns}</option>
+              <option value="name">{DASHBOARD_COPY.name}</option>
+            </select>
+          </div>
           <AutomationViewToggle
             view={viewMode}
             onChange={handleViewModeChange}
@@ -342,6 +470,29 @@ export default function AutomationsList() {
 
           {hasNoAutomations && <EmptyState />}
 
+          {!isLoading &&
+            !isError &&
+            data &&
+            data.automations.length > 0 &&
+            filtered.length === 0 && (
+              <div className="rounded-xl border border-dashed border-[var(--oh-border)] px-6 py-10 text-center">
+                <p className="text-sm font-medium text-white">
+                  {DASHBOARD_COPY.noMatches}
+                </p>
+                <button
+                  type="button"
+                  className="mt-2 text-sm text-primary hover:underline"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setStatusFilter("all");
+                    setTriggerFilter("all");
+                  }}
+                >
+                  {DASHBOARD_COPY.clearFilters}
+                </button>
+              </div>
+            )}
+
           {!isLoading && !isError && data && data.automations.length > 0 && (
             <>
               <AutomationGroup
@@ -359,6 +510,7 @@ export default function AutomationsList() {
                 onDelete={handleDeleteRequest}
                 onExport={handleExport}
                 onEdit={canEdit ? handleEditRequest : undefined}
+                runSummaries={runSummaries}
               />
               <AutomationGroup
                 title={t(I18nKey.AUTOMATIONS$INACTIVE)}
@@ -375,6 +527,7 @@ export default function AutomationsList() {
                 onDelete={handleDeleteRequest}
                 onExport={handleExport}
                 onEdit={canEdit ? handleEditRequest : undefined}
+                runSummaries={runSummaries}
               />
 
               {hasMore && (
@@ -388,10 +541,6 @@ export default function AutomationsList() {
               )}
             </>
           )}
-        </div>
-
-        <div className="mt-6">
-          <RecommendedAutomationsLauncher query={searchQuery} />
         </div>
 
         {/* Delete confirmation modal */}
@@ -424,6 +573,6 @@ export default function AutomationsList() {
           onImport={handleImportConfirm}
         />
       </div>
-    </div>
+    </AutomationsPageLayout>
   );
 }
