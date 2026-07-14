@@ -52,10 +52,9 @@ import { AutomationDashboardOverview } from "#/components/features/automations/a
 import { useAutomationRunSummaries } from "#/hooks/query/use-automation-run-summaries";
 import { getAutomationHealth } from "#/components/features/automations/automation-health";
 import { AutomationsPageLayout } from "#/components/features/automations/automations-page-layout";
+import { EnumFilterDropdown } from "#/components/shared/filters/enum-filter-dropdown";
 
 const PAGE_SIZE = 50;
-const SELECT_CLASS_NAME =
-  "h-9 rounded-lg border border-[var(--oh-border)] bg-base-secondary px-3 text-sm text-white outline-none focus:border-white/40 focus:ring-1 focus:ring-white/20";
 const DASHBOARD_COPY = {
   title: "Dashboard",
   subtitle: "Health, activity, and run performance across your automations.",
@@ -79,6 +78,39 @@ const DASHBOARD_COPY = {
 type StatusFilter = "all" | "active" | "failing" | "disabled";
 type TriggerFilter = "all" | "schedule" | "event";
 type DashboardSort = "last-run" | "name" | "runs";
+
+const STATUS_FILTER_OPTIONS: readonly StatusFilter[] = [
+  "all",
+  "active",
+  "failing",
+  "disabled",
+];
+const STATUS_FILTER_LABELS: Record<StatusFilter, string> = {
+  all: DASHBOARD_COPY.allStatuses,
+  active: DASHBOARD_COPY.active,
+  failing: DASHBOARD_COPY.needsAttention,
+  disabled: DASHBOARD_COPY.disabled,
+};
+const TRIGGER_FILTER_OPTIONS: readonly TriggerFilter[] = [
+  "all",
+  "schedule",
+  "event",
+];
+const TRIGGER_FILTER_LABELS: Record<TriggerFilter, string> = {
+  all: DASHBOARD_COPY.allTriggers,
+  schedule: DASHBOARD_COPY.scheduled,
+  event: DASHBOARD_COPY.eventDriven,
+};
+const DASHBOARD_SORT_OPTIONS: readonly DashboardSort[] = [
+  "last-run",
+  "runs",
+  "name",
+];
+const DASHBOARD_SORT_LABELS: Record<DashboardSort, string> = {
+  "last-run": DASHBOARD_COPY.latestRun,
+  runs: DASHBOARD_COPY.mostRuns,
+  name: DASHBOARD_COPY.name,
+};
 
 export default function AutomationsList() {
   const { t } = useTranslation("openhands");
@@ -411,43 +443,30 @@ export default function AutomationsList() {
             className="lg:max-w-md"
           />
           <div className="flex flex-wrap items-stretch gap-2 lg:ml-auto">
-            <select
+            <EnumFilterDropdown
+              testId="automations-status-filter"
               value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as StatusFilter)
-              }
-              className={SELECT_CLASS_NAME}
-              aria-label={DASHBOARD_COPY.filterStatus}
-            >
-              <option value="all">{DASHBOARD_COPY.allStatuses}</option>
-              <option value="active">{DASHBOARD_COPY.active}</option>
-              <option value="failing">{DASHBOARD_COPY.needsAttention}</option>
-              <option value="disabled">{DASHBOARD_COPY.disabled}</option>
-            </select>
-            <select
+              onChange={setStatusFilter}
+              options={STATUS_FILTER_OPTIONS}
+              labelByValue={STATUS_FILTER_LABELS}
+              ariaLabel={DASHBOARD_COPY.filterStatus}
+            />
+            <EnumFilterDropdown
+              testId="automations-trigger-filter"
               value={triggerFilter}
-              onChange={(event) =>
-                setTriggerFilter(event.target.value as TriggerFilter)
-              }
-              className={SELECT_CLASS_NAME}
-              aria-label={DASHBOARD_COPY.filterTrigger}
-            >
-              <option value="all">{DASHBOARD_COPY.allTriggers}</option>
-              <option value="schedule">{DASHBOARD_COPY.scheduled}</option>
-              <option value="event">{DASHBOARD_COPY.eventDriven}</option>
-            </select>
-            <select
+              onChange={setTriggerFilter}
+              options={TRIGGER_FILTER_OPTIONS}
+              labelByValue={TRIGGER_FILTER_LABELS}
+              ariaLabel={DASHBOARD_COPY.filterTrigger}
+            />
+            <EnumFilterDropdown
+              testId="automations-sort"
               value={sortBy}
-              onChange={(event) =>
-                setSortBy(event.target.value as DashboardSort)
-              }
-              className={SELECT_CLASS_NAME}
-              aria-label={DASHBOARD_COPY.sort}
-            >
-              <option value="last-run">{DASHBOARD_COPY.latestRun}</option>
-              <option value="runs">{DASHBOARD_COPY.mostRuns}</option>
-              <option value="name">{DASHBOARD_COPY.name}</option>
-            </select>
+              onChange={setSortBy}
+              options={DASHBOARD_SORT_OPTIONS}
+              labelByValue={DASHBOARD_SORT_LABELS}
+              ariaLabel={DASHBOARD_COPY.sort}
+            />
           </div>
           <AutomationViewToggle
             view={viewMode}

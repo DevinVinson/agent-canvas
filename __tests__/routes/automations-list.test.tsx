@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
@@ -212,6 +212,44 @@ describe("AutomationsList — view mode toggle", () => {
     expect(
       screen.queryByTestId("automations-view-toggle-list"),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("AutomationsList — dashboard dropdowns", () => {
+  it("uses the shared filter dropdown and applies a selected status", async () => {
+    const user = userEvent.setup();
+    renderList();
+    await screen.findByText(automation.name);
+
+    const statusFilter = screen.getByTestId("automations-status-filter");
+    const trigger = within(statusFilter).getByTestId("dropdown-trigger");
+
+    expect(trigger).toHaveAttribute("aria-label", "Filter by status");
+    await user.click(trigger);
+    await user.click(screen.getByTestId("automations-status-filter-failing"));
+
+    expect(
+      screen.getByText("No automations match these filters"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("automations-status-filter-menu"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders trigger and sort controls with the shared dropdown", async () => {
+    renderList();
+    await screen.findByText(automation.name);
+
+    expect(
+      within(screen.getByTestId("automations-trigger-filter")).getByTestId(
+        "dropdown-trigger",
+      ),
+    ).toHaveTextContent("All triggers");
+    expect(
+      within(screen.getByTestId("automations-sort")).getByTestId(
+        "dropdown-trigger",
+      ),
+    ).toHaveTextContent("Latest run");
   });
 });
 
