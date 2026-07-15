@@ -1,15 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import {
-  Building2,
-  Check,
-  ChevronRight,
-  Cloud,
-  ExternalLink,
-  Laptop,
-  Server,
-} from "lucide-react";
 import { ServerClient } from "@openhands/typescript-client/clients";
 import OpenHandsLogoWhite from "#/assets/branding/openhands-logo-white.svg?react";
 import { ModalBackdrop } from "#/components/shared/modals/modal-backdrop";
@@ -38,10 +29,10 @@ import {
   modalTitleLgClassName,
   modalTitleLgMediumClassName,
 } from "#/utils/modal-classes";
-import { formControlButtonClassName } from "#/utils/form-control-classes";
 import { getBackendStatusLabel } from "./backend-status-label";
 import { BackendStatusDot } from "./backend-status-dot";
 import { DeviceFlowAuth } from "./device-flow-auth";
+import { AddBackendChooser } from "./add-backend-chooser/add-backend-chooser";
 
 export type BackendFormMode = "add" | "edit";
 
@@ -144,12 +135,6 @@ function isValidHostUrl(host: string): boolean {
 }
 
 const DEFAULT_OPENHANDS_CLOUD_HOST = "https://app.all-hands.dev";
-const ENTERPRISE_QUICK_START_URL =
-  "https://docs.openhands.dev/enterprise/quick-start";
-const LOCAL_BACKEND_DOCS_URL =
-  "https://docs.openhands.dev/openhands/usage/agent-canvas/backend-setup/local";
-const REMOTE_BACKEND_DOCS_URL =
-  "https://docs.openhands.dev/openhands/usage/agent-canvas/backend-setup/vm";
 
 export type BackendConnectionMethod = "manual" | "cloud_login";
 
@@ -700,7 +685,7 @@ function useRedirectAfterAddBackend() {
   }, [currentPath, navigate]);
 }
 
-interface BackendConnectionOptionsProps {
+export interface BackendConnectionOptionsProps {
   onConnected: (
     payload: BackendFormSubmitPayload,
     connectionMethod: BackendConnectionMethod,
@@ -776,7 +761,7 @@ export function BackendConnectionOptions({
   );
 }
 
-interface ManualConnectionColumnProps {
+export interface ManualConnectionColumnProps {
   onConnected: (
     payload: BackendFormSubmitPayload,
     connectionMethod: BackendConnectionMethod,
@@ -795,7 +780,7 @@ interface ManualConnectionColumnProps {
  * Manual connection via Host + API Key. Designed for self-hosted agent servers
  * and self-hosted OpenHands Cloud with API key auth.
  */
-function ManualConnectionColumn({
+export function ManualConnectionColumn({
   onConnected,
   testIdRoot,
   initialBackend,
@@ -940,7 +925,7 @@ function ManualConnectionColumn({
   );
 }
 
-interface CloudLoginColumnProps {
+export interface CloudLoginColumnProps {
   onConnected: (
     payload: BackendFormSubmitPayload,
     connectionMethod: BackendConnectionMethod,
@@ -954,7 +939,7 @@ interface CloudLoginColumnProps {
  * disclosure for users who self-host OpenHands Cloud and need to override the
  * host.
  */
-function CloudLoginColumn({
+export function CloudLoginColumn({
   onConnected,
   testIdRoot,
   lockedHost,
@@ -1044,424 +1029,6 @@ function CloudLoginColumn({
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-type AddBackendOptionId = "cloud" | "local" | "remote";
-
-interface AddBackendOption {
-  id: AddBackendOptionId;
-  title: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
-}
-
-const ADD_BACKEND_OPTIONS: AddBackendOption[] = [
-  {
-    id: "cloud",
-    title: "OpenHands Cloud",
-    description: "Hosted backend with the fastest setup.",
-    icon: Cloud,
-  },
-  {
-    id: "local",
-    title: "Local Backend",
-    description: "Run another Agent Canvas backend on this machine.",
-    icon: Laptop,
-  },
-  {
-    id: "remote",
-    title: "Remote Backend",
-    description: "Connect to a VM, tunnel, or self-hosted endpoint.",
-    icon: Server,
-  },
-];
-
-const ADD_BACKEND_COPY = {
-  cloudHeaderDescription:
-    "Use hosted OpenHands when you want a ready-to-run backend, cloud agents, and account-based sign-in.",
-  enterpriseTitle: "OpenHands Enterprise",
-  enterpriseDescription:
-    "Self-host OpenHands for your organization with controls designed for shared infrastructure.",
-  enterpriseBenefits: [
-    "Self-hosted enterprise deployment",
-    "Role-based access control",
-    "Budgeting controls",
-    "Organizational skills",
-  ],
-  enterpriseLink: "View Enterprise quick start",
-  localTitle: "Local Backend",
-  localDescription: "Connect to another Agent Canvas backend running locally.",
-  localNoteTitle: "Before you connect",
-  localNotePrefix:
-    "Run the backend-only instance on a different port from this frontend, then enter that host below. For example, start it with",
-  localDocsTitle: "Docs",
-  localDocsLink: "Read the local backend setup guide",
-  remoteTitle: "Remote Backend",
-  remoteDescription:
-    "Connect this frontend to an Agent Canvas backend on a VM or other trusted host.",
-  remoteRecommendedTitle: "Recommended setup",
-  remoteRecommendedPrefix: "Run the remote backend with",
-  remoteRecommendedMiddle: "set a strong",
-  remoteRecommendedSuffix:
-    "and expose it through an SSH tunnel, ngrok, or a TLS reverse proxy.",
-  remoteConnectionTitle: "Connection details",
-  remoteConnectionPrefix: "Use",
-  remoteConnectionSuffix:
-    "for an SSH tunnel, your ngrok domain for an ngrok setup, or your HTTPS reverse proxy URL.",
-  remoteDocsLink: "Read the remote backend setup guide",
-  chooserDescription: "Choose where Agent Canvas should run your agents.",
-  tablistLabel: "Backend type",
-} as const;
-
-const LOCAL_BACKEND_COMMAND = "agent-canvas --backend-only --port 8001";
-const REMOTE_PUBLIC_FLAG = "--public";
-const REMOTE_API_KEY_ENV = "LOCAL_BACKEND_API_KEY";
-const REMOTE_SSH_TUNNEL_URL = "http://localhost:8000";
-
-function ExternalButtonLink({
-  href,
-  children,
-  variant = "secondary",
-  testId,
-}: {
-  href: string;
-  children: React.ReactNode;
-  variant?: "primary" | "secondary";
-  testId: string;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      data-testid={testId}
-      className={cn(
-        formControlButtonClassName,
-        "w-full",
-        variant === "primary"
-          ? "bg-primary text-[var(--oh-color-base)] hover:opacity-80"
-          : "border border-[var(--oh-border)] bg-base-secondary text-white hover:bg-surface-raised",
-      )}
-    >
-      {children}
-      <ExternalLink className="size-4 shrink-0" aria-hidden />
-    </a>
-  );
-}
-
-function BenefitList({ items }: { items: string[] }) {
-  return (
-    <ul className="flex flex-col gap-3 text-sm text-content-2">
-      {items.map((item) => (
-        <li key={item} className="flex items-start gap-2">
-          <Check
-            className="mt-0.5 size-4 shrink-0 text-green-400"
-            aria-hidden
-          />
-          <span>{item}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function OptionHeader({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-[var(--oh-border)] bg-tertiary">
-        <Icon className="size-5 text-primary" aria-hidden />
-      </div>
-      <div className="min-w-0">
-        <h3 className={modalTitleLgMediumClassName}>{title}</h3>
-        <p className="mt-1 text-sm leading-relaxed text-[var(--oh-muted)]">
-          {description}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function CloudBackendDetails({
-  onConnected,
-  testIdRoot,
-}: Pick<CloudLoginColumnProps, "onConnected" | "testIdRoot">) {
-  return (
-    <div className="flex flex-col gap-5">
-      <OptionHeader
-        icon={Cloud}
-        title={ADD_BACKEND_OPTIONS[0].title}
-        description={ADD_BACKEND_COPY.cloudHeaderDescription}
-      />
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <div className="flex min-w-0 flex-col rounded-lg border border-[var(--oh-border)] bg-base-primary p-5">
-          <CloudLoginColumn onConnected={onConnected} testIdRoot={testIdRoot} />
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-5 rounded-lg border border-[var(--oh-border)] bg-base-primary p-5">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <Building2 className="size-12 text-secondary-light" aria-hidden />
-            <h4 className={modalTitleLgMediumClassName}>
-              {ADD_BACKEND_COPY.enterpriseTitle}
-            </h4>
-            <p className="text-sm leading-relaxed text-[var(--oh-muted)]">
-              {ADD_BACKEND_COPY.enterpriseDescription}
-            </p>
-          </div>
-
-          <BenefitList items={[...ADD_BACKEND_COPY.enterpriseBenefits]} />
-
-          <div className="mt-auto">
-            <ExternalButtonLink
-              href={ENTERPRISE_QUICK_START_URL}
-              testId={`${testIdRoot}-enterprise-link`}
-            >
-              {ADD_BACKEND_COPY.enterpriseLink}
-            </ExternalButtonLink>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BackendSetupNote({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-lg border border-[var(--oh-border)] bg-base-primary p-4">
-      <h4 className="text-sm font-medium text-content-2">{title}</h4>
-      <div className="mt-2 text-sm leading-relaxed text-[var(--oh-muted)]">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function LocalBackendDetails({
-  onConnected,
-  testIdRoot,
-}: Pick<ManualConnectionColumnProps, "onConnected" | "testIdRoot">) {
-  const { t } = useTranslation("openhands");
-
-  return (
-    <div className="flex flex-col gap-5">
-      <OptionHeader
-        icon={Laptop}
-        title={ADD_BACKEND_COPY.localTitle}
-        description={ADD_BACKEND_COPY.localDescription}
-      />
-
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <div className="flex flex-col gap-4">
-          <BackendSetupNote title={ADD_BACKEND_COPY.localNoteTitle}>
-            {ADD_BACKEND_COPY.localNotePrefix}{" "}
-            <code className="text-content-2">{LOCAL_BACKEND_COMMAND}</code>.
-          </BackendSetupNote>
-
-          <BackendSetupNote title={ADD_BACKEND_COPY.localDocsTitle}>
-            <a
-              href={LOCAL_BACKEND_DOCS_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-primary hover:underline"
-            >
-              {ADD_BACKEND_COPY.localDocsLink}
-              <ExternalLink className="size-3.5" aria-hidden />
-            </a>
-          </BackendSetupNote>
-        </div>
-
-        <ManualConnectionColumn
-          onConnected={onConnected}
-          testIdRoot={testIdRoot}
-          requireApiKey={false}
-          submitLabel={t(I18nKey.BACKEND$CONNECT)}
-          submittingLabel={t(I18nKey.ONBOARDING$BACKEND_STATUS_CHECKING)}
-        />
-      </div>
-    </div>
-  );
-}
-
-function RemoteBackendDetails({
-  onConnected,
-  testIdRoot,
-}: Pick<ManualConnectionColumnProps, "onConnected" | "testIdRoot">) {
-  const { t } = useTranslation("openhands");
-
-  return (
-    <div className="flex flex-col gap-5">
-      <OptionHeader
-        icon={Server}
-        title={ADD_BACKEND_COPY.remoteTitle}
-        description={ADD_BACKEND_COPY.remoteDescription}
-      />
-
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-        <div className="flex flex-col gap-4">
-          <BackendSetupNote title={ADD_BACKEND_COPY.remoteRecommendedTitle}>
-            {ADD_BACKEND_COPY.remoteRecommendedPrefix}{" "}
-            <code className="text-content-2">{REMOTE_PUBLIC_FLAG}</code>,{" "}
-            {ADD_BACKEND_COPY.remoteRecommendedMiddle}{" "}
-            <code className="text-content-2">{REMOTE_API_KEY_ENV}</code>,{" "}
-            {ADD_BACKEND_COPY.remoteRecommendedSuffix}
-          </BackendSetupNote>
-
-          <BackendSetupNote title={ADD_BACKEND_COPY.remoteConnectionTitle}>
-            {ADD_BACKEND_COPY.remoteConnectionPrefix}{" "}
-            <code className="text-content-2">{REMOTE_SSH_TUNNEL_URL}</code>{" "}
-            {ADD_BACKEND_COPY.remoteConnectionSuffix}
-          </BackendSetupNote>
-
-          <BackendSetupNote title={ADD_BACKEND_COPY.localDocsTitle}>
-            <a
-              href={REMOTE_BACKEND_DOCS_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-primary hover:underline"
-            >
-              {ADD_BACKEND_COPY.remoteDocsLink}
-              <ExternalLink className="size-3.5" aria-hidden />
-            </a>
-          </BackendSetupNote>
-        </div>
-
-        <ManualConnectionColumn
-          onConnected={onConnected}
-          testIdRoot={testIdRoot}
-          requireApiKey
-          submitLabel={t(I18nKey.BACKEND$CONNECT)}
-          submittingLabel={t(I18nKey.ONBOARDING$BACKEND_STATUS_CHECKING)}
-        />
-      </div>
-    </div>
-  );
-}
-
-function AddBackendChooser({
-  onConnected,
-  testIdRoot = "add-backend",
-}: BackendConnectionOptionsProps) {
-  const [selectedOption, setSelectedOption] =
-    React.useState<AddBackendOptionId>("cloud");
-
-  const selected = ADD_BACKEND_OPTIONS.find(
-    (option) => option.id === selectedOption,
-  );
-
-  const renderDetails = () => {
-    switch (selectedOption) {
-      case "local":
-        return (
-          <LocalBackendDetails
-            onConnected={onConnected}
-            testIdRoot={testIdRoot}
-          />
-        );
-      case "remote":
-        return (
-          <RemoteBackendDetails
-            onConnected={onConnected}
-            testIdRoot={testIdRoot}
-          />
-        );
-      case "cloud":
-      default:
-        return (
-          <CloudBackendDetails
-            onConnected={onConnected}
-            testIdRoot={testIdRoot}
-          />
-        );
-    }
-  };
-
-  return (
-    <div
-      data-testid={`${testIdRoot}-connection-options`}
-      className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]"
-    >
-      <div className="flex min-w-0 flex-col gap-3">
-        <p className="text-sm leading-relaxed text-[var(--oh-muted)]">
-          {ADD_BACKEND_COPY.chooserDescription}
-        </p>
-        <div
-          role="tablist"
-          aria-label={ADD_BACKEND_COPY.tablistLabel}
-          className="flex flex-col gap-2"
-        >
-          {ADD_BACKEND_OPTIONS.map((option) => {
-            const Icon = option.icon;
-            const isSelected = option.id === selectedOption;
-
-            return (
-              <button
-                key={option.id}
-                type="button"
-                role="tab"
-                aria-selected={isSelected}
-                data-testid={`${testIdRoot}-option-${option.id}`}
-                onClick={() => setSelectedOption(option.id)}
-                className={cn(
-                  "flex min-h-[76px] w-full cursor-pointer items-center gap-3 rounded-lg border p-3 text-left",
-                  "transition-colors duration-75 motion-reduce:transition-none",
-                  isSelected
-                    ? "border-primary bg-primary/10"
-                    : "border-[var(--oh-border)] bg-base-primary hover:bg-surface-raised",
-                )}
-              >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-tertiary">
-                  <Icon
-                    className={cn(
-                      "size-5",
-                      isSelected ? "text-primary" : "text-[var(--oh-muted)]",
-                    )}
-                    aria-hidden
-                  />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium text-content-2">
-                    {option.title}
-                  </span>
-                  <span className="mt-0.5 block text-xs leading-snug text-[var(--oh-muted)]">
-                    {option.description}
-                  </span>
-                </span>
-                <ChevronRight
-                  className={cn(
-                    "size-4 shrink-0",
-                    isSelected ? "text-primary" : "text-[var(--oh-muted)]",
-                  )}
-                  aria-hidden
-                />
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div
-        role="tabpanel"
-        aria-label={selected?.title}
-        className="min-w-0 border-t border-[var(--oh-border)] pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0"
-      >
-        {renderDetails()}
-      </div>
     </div>
   );
 }

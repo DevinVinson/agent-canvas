@@ -303,3 +303,57 @@ describe("BackendFormModal – edit mode (BackendForm entry point)", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("BackendFormModal – add mode (AddBackendChooser entry point)", () => {
+  it("defaults to the Cloud option and shows the Cloud login panel", () => {
+    renderWithProviders(<BackendFormModal mode="add" onClose={vi.fn()} />);
+
+    expect(screen.getByTestId("add-backend-option-cloud")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByTestId("add-backend-option-local")).toBeInTheDocument();
+    expect(screen.getByTestId("add-backend-option-remote")).toBeInTheDocument();
+    expect(screen.getByTestId("add-backend-login-button")).toBeVisible();
+  });
+
+  it("connects a Local backend from the Local tab without an API key", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    renderWithProviders(<BackendFormModal mode="add" onClose={onClose} />);
+
+    await user.click(screen.getByTestId("add-backend-option-local"));
+    await user.type(screen.getByTestId("add-backend-name"), "Local Dev");
+    await user.type(screen.getByTestId("add-backend-host"), "localhost:9001");
+
+    await user.click(screen.getByTestId("add-backend-submit"));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+
+    const stored = JSON.parse(
+      window.localStorage.getItem("openhands-backends") ?? "[]",
+    );
+    expect(stored).toContainEqual(
+      expect.objectContaining({
+        name: "Local Dev",
+        host: "http://localhost:9001",
+        kind: "local",
+      }),
+    );
+  });
+
+  it("requires an API key before connecting from the Remote tab", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<BackendFormModal mode="add" onClose={vi.fn()} />);
+
+    await user.click(screen.getByTestId("add-backend-option-remote"));
+    await user.type(screen.getByTestId("add-backend-name"), "Remote Box");
+    await user.type(screen.getByTestId("add-backend-host"), "localhost:9002");
+
+    expect(screen.getByTestId("add-backend-submit")).toBeDisabled();
+
+    await user.type(screen.getByTestId("add-backend-api-key"), "sk-remote");
+
+    expect(screen.getByTestId("add-backend-submit")).not.toBeDisabled();
+  });
+});
