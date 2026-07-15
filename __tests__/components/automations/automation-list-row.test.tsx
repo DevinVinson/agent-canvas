@@ -53,6 +53,18 @@ describe("AutomationListRow", () => {
     expect(screen.getByTestId("automation-run-now-automation-1")).toHaveClass(
       "size-8",
     );
+    expect(
+      screen.getByTestId("automation-actions-automation-1"),
+    ).not.toHaveClass("hidden");
+    expect(screen.getByTestId("automation-health-automation-1")).toHaveClass(
+      "@min-[36rem]:table-cell",
+    );
+    expect(screen.getByTestId("automation-last-run-automation-1")).toHaveClass(
+      "@min-[44rem]:table-cell",
+    );
+    expect(screen.getByTestId("automation-run-stats-automation-1")).toHaveClass(
+      "@min-[56rem]:table-cell",
+    );
   });
 
   it("opens the actions menu without triggering row navigation handlers", async () => {

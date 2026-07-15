@@ -123,8 +123,10 @@ export function AutomationListRow({
               </div>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 md:hidden">
-            <AutomationHealthBadge health={health} />
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 @min-[44rem]:hidden">
+            <span className="@min-[36rem]:hidden">
+              <AutomationHealthBadge health={health} />
+            </span>
             <span className="text-xs text-tertiary-alt">
               {ROW_COPY.lastRun} {formatLastRun(lastRunAt)}
             </span>
@@ -133,24 +135,27 @@ export function AutomationListRow({
       </td>
 
       <td
+        data-testid={`automation-health-${automation.id}`}
         className={cn(
-          "hidden whitespace-nowrap md:table-cell",
+          "hidden w-[110px] whitespace-nowrap @min-[36rem]:table-cell",
           automationListCellClassName,
         )}
       >
         <AutomationHealthBadge health={health} />
       </td>
       <td
+        data-testid={`automation-last-run-${automation.id}`}
         className={cn(
-          "hidden whitespace-nowrap text-xs text-tertiary-light md:table-cell",
+          "hidden w-[84px] whitespace-nowrap text-xs text-tertiary-light @min-[44rem]:table-cell",
           automationListCellClassName,
         )}
       >
         {formatLastRun(lastRunAt)}
       </td>
       <td
+        data-testid={`automation-run-stats-${automation.id}`}
         className={cn(
-          "hidden whitespace-nowrap text-right text-xs text-tertiary-light lg:table-cell",
+          "hidden w-[140px] whitespace-nowrap text-right text-xs text-tertiary-light @min-[56rem]:table-cell",
           automationListCellClassName,
         )}
       >
@@ -164,7 +169,13 @@ export function AutomationListRow({
         </span>
       </td>
 
-      <td className={cn("w-0 whitespace-nowrap", automationListCellClassName)}>
+      <td
+        data-testid={`automation-actions-${automation.id}`}
+        className={cn(
+          "w-[90px] whitespace-nowrap",
+          automationListCellClassName,
+        )}
+      >
         <div className="flex items-center justify-end gap-0.5">
           {canManage ? (
             <StyledTooltip

@@ -43,7 +43,7 @@ export function AutomationGroup({
   if (automations.length === 0) return null;
 
   return (
-    <section>
+    <section className="@container">
       <div className="flex items-center">
         <h2 className="text-base font-semibold text-foreground">{title}</h2>
         <StatusBadge count={count} />
@@ -68,7 +68,7 @@ export function AutomationGroup({
         </div>
       ) : (
         <div className={cn(automationListTableClassName, "mt-3")}>
-          <table className="w-full min-w-full [&>tbody>tr:first-child]:border-t-0">
+          <table className="w-full min-w-full table-fixed [&>tbody>tr:first-child]:border-t-0">
             <tbody>
               {automations.map((automation) => (
                 <AutomationListRow
