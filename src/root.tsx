@@ -28,6 +28,7 @@ import {
 import { getEffectiveLocalBackend } from "#/api/backend-registry/active-store";
 import { useActiveBackendContext } from "#/contexts/active-backend-context";
 import {
+  isCloudBackendApiKeyOrNetworkHealthError,
   isCloudBackendLoggedOutHealthError,
   useBackendsHealth,
 } from "#/hooks/query/use-backends-health";
@@ -70,6 +71,14 @@ const ApiKeyEntryScreen = React.lazy(
 const OnboardingModal = React.lazy(() =>
   import("#/components/features/onboarding/onboarding-modal").then((m) => ({
     default: m.OnboardingModal,
+  })),
+);
+
+// Rendered for first-run in locked-to-Cloud mode; shows Cloud login directly
+// without the onboarding progress bars.
+const BackendFormModal = React.lazy(() =>
+  import("#/components/features/backends/backend-form-modal").then((m) => ({
+    default: m.BackendFormModal,
   })),
 );
 
@@ -158,6 +167,31 @@ function FirstRunOnboardingScreen({ onClose }: { onClose: () => void }) {
     }),
     [conversationId, location.pathname, navigate, routerNavigation.location],
   );
+
+  const lockedCloudHost = getLockedCloudHost();
+  const isLockedToCloud = lockedCloudHost !== null;
+
+  // In locked-to-Cloud mode, show the Add Backend modal directly with Cloud
+  // login, instead of the full onboarding flow with progress bars. This
+  // matches the UX expectation for canvas.openhands.dev where Cloud is the
+  // only backend option.
+  if (isLockedToCloud) {
+    return (
+      <main
+        data-testid="first-run-onboarding-screen"
+        className="min-h-screen bg-base"
+      >
+        <React.Suspense fallback={<AgentServerBootstrapLoading />}>
+          <BackendFormModal
+            mode="add"
+            onClose={onClose}
+            source="manage_backends_modal"
+            hideCloseButton
+          />
+        </React.Suspense>
+      </main>
+    );
+  }
 
   return (
     <main
@@ -252,6 +286,15 @@ export default function App() {
     active.backend.kind === "cloud" &&
     activeCloudHealth?.isConnected === false &&
     isCloudBackendLoggedOutHealthError(activeCloudHealth.lastError);
+  // A cloud backend the health probe has given up on (disabled after repeated
+  // CORS/network failures) is unreachable from this origin — most commonly a
+  // self-hosted OHE that doesn't allow this frontend's origin. Route to the
+  // same recovery screen as a logged-out backend so the user sees the real
+  // connectivity error, not a misleading "LLM not configured" home page.
+  const activeCloudUnreachable =
+    active.backend.kind === "cloud" &&
+    activeCloudHealth?.disabled === true &&
+    isCloudBackendApiKeyOrNetworkHealthError(activeCloudHealth.lastError);
 
   if (showFirstRunOnboarding) {
     return <FirstRunOnboardingScreen onClose={markCompleted} />;
@@ -271,7 +314,11 @@ export default function App() {
     return <AgentServerBootstrapLoading />;
   }
 
-  if (activeCloudLoggedOut || isAgentServerUnavailableError(config.error)) {
+  if (
+    activeCloudLoggedOut ||
+    activeCloudUnreachable ||
+    isAgentServerUnavailableError(config.error)
+  ) {
     return <MissingAgentServerScreen />;
   }
 
