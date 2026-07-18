@@ -51,7 +51,7 @@ const DEFAULT_AGENT_SERVER_VERSION = SHARED_DEFAULTS.versions.agentServer;
 // LiteLLM's current native build does not support Python 3.14. Request a
 // known-compatible interpreter for uvx until the SDK dependency graph does.
 const DEFAULT_AGENT_SERVER_PYTHON = "3.13";
-// Temporary transitive-dep pin: openhands-sdk 1.35.0 leaves agent-client-protocol
+// Temporary transitive-dep pin: openhands-sdk 1.36.1 leaves agent-client-protocol
 // unbounded (>=0.10.1), but acp 0.11.0 reordered the ACP prompt() args and breaks
 // the SDK's ACP client. Hold acp <0.11 until a fixed SDK ships. See config/defaults.json.
 const AGENT_CLIENT_PROTOCOL_CONSTRAINT =
@@ -402,7 +402,7 @@ export function validateFrontendDependencies(
  *   edits are picked up without a manual reinstall. The agent-server itself
  *   is rebuilt from local source on each invocation (--reinstall).
  * - OH_AGENT_SERVER_GIT_REF: Git commit SHA or branch name
- * - OH_AGENT_SERVER_VERSION: Specific PyPI version (e.g., "1.35.0")
+ * - OH_AGENT_SERVER_VERSION: Specific PyPI version (e.g., "1.36.1")
  * - OH_AGENT_SERVER_PYTHON: Python version or interpreter for uvx (default: "3.13")
  *
  * If none are set, defaults to the released version specified by
@@ -643,10 +643,9 @@ function buildConfigFromPorts(ports, cwd, env) {
     env.LOCAL_BACKEND_API_KEY ||
     getOrCreatePersistedApiKeyFile(persistedKeyPath);
 
-  // Host directory containing Agent-Canvas-specific Python tools (e.g. the
-  // canvas_ui tool). Added to OH_EXTRA_PYTHON_PATH below so the agent-server
-  // can import the modules listed in `tool_module_qualnames`. Lives at
-  // <repo-root>/tools relative to this script.
+  // Host directory containing the legacy canvas_ui Python module. Persisted
+  // conversations created before the client_tools migration still reference
+  // its module qualname, so the agent-server can import it when resuming them.
   const canvasToolsDir = fileURLToPath(new URL("../tools", import.meta.url));
 
   return {
@@ -726,8 +725,8 @@ export function buildAgentServerEnv(config) {
     // a follow-up change to the automation preset reads
     // OH_SESSION_API_KEYS_0 directly (which is already in env).
     AGENT_SERVER_URL: config.backendBaseUrl,
-    // Make the host tools/ directory importable so the agent-server can
-    // resolve modules listed in tool_module_qualnames (e.g. canvas_ui_tool).
+    // Let the agent-server resolve canvas_ui_tool when old persisted metadata
+    // requests that compatibility module during startup.
     OH_EXTRA_PYTHON_PATH: config.canvasToolsDir,
   };
 }
